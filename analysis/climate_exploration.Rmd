@@ -1,0 +1,66 @@
+---
+title: "Exploratory climate plots"
+author: "Sanne Evers"
+date: "4/14/2022"
+output: pdf_document
+params:
+  climate_data_location: "data/climate_data_Dobrichovice.csv"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+knitr::opts_knit$set(root.dir = '../')
+
+```
+
+
+
+```{r, fig.dim=c(10,15)}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+
+clim <- read.csv(params$climate_data_location)
+
+ggplot(clim) +
+  geom_point(aes(x = Month, y = Tavg), colour = "orange") +
+  geom_point(aes(x = Month, y = Tmin), colour = "yellow") +
+  geom_point(aes(x = Month, y = Tmax), colour = "red") +
+  geom_line(aes(x = Month, y = Tavg), colour = "orange") +
+  geom_line(aes(x = Month, y = Tmin), colour = "yellow") +
+  geom_line(aes(x = Month, y = Tmax), colour = "red") +
+  facet_wrap(vars(Year), ncol = 4) +
+  ggtitle("Temperatures across years", subtitle = "Red = Tmax, orange = Tavg and yellow = Tmin")
+
+ggplot(clim) +
+  geom_point(aes(x = Month, y = Prec)) +
+  geom_line(aes(x = Month, y = Prec)) +
+  facet_wrap(vars(Year), ncol = 4) + 
+  ggtitle("Summed monthly precipitation across years")
+
+
+ggplot(clim) +
+  geom_point(aes(x = Month, y = Tavg_scaled), colour = "orange") +
+  geom_point(aes(x = Month, y = Tmin_scaled), colour = "yellow") +
+  geom_point(aes(x = Month, y = Tmax_scaled), colour = "red") +
+  geom_line(aes(x = Month, y = Tavg_scaled), colour = "orange") +
+  geom_line(aes(x = Month, y = Tmin_scaled), colour = "yellow") +
+  geom_line(aes(x = Month, y = Tmax_scaled), colour = "red") +
+  geom_point(aes(x = Month, y = Prec_scaled), colour = "blue") +
+  geom_line(aes(x = Month, y = Prec_scaled), colour = "blue") +
+  facet_wrap(vars(Year), ncol = 4) +
+  ggtitle("Scaled temperatures and precipitation across years (Scaled per Month)", 
+          subtitle = "Red = Tmax, orange = Tavg, yellow = Tmin, and blue = Precipitation")
+
+ggplot(clim) + 
+  geom_point(aes(x = Month, y = GDD_5), colour = "green") +
+  geom_line(aes(x = Month, y = GDD_5), colour = "green") +
+  geom_point(aes(x = Month, y = GDD_10), colour = "darkgreen") +
+  geom_line(aes(x = Month, y = GDD_10), colour = "darkgreen") + 
+  facet_wrap(vars(Year), ncol = 4) +
+  ggtitle("Growing Degree Days for 5 (green) and 10 (darkgreen) degree celcius")
+  
+  
+  
+
+```
+

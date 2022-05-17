@@ -1,0 +1,199 @@
+---
+title: "Climate data and stations"
+author: "Sanne Evers"
+date: "4/28/2022"
+output: pdf_document
+params:
+  gps_locations: "data/Draco clima GPS.xlsx"
+  data_loggers_folder: "data/clima/"
+  climate_dobrichovice: "data/climatic data Dobrichovice.xlsx"
+  chelsa_data: "data/CHELSA_data.csv"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+
+suppressPackageStartupMessages(library(leaflet))
+suppressPackageStartupMessages(library(tidyverse))
+```
+
+# CZ climate stations
+
+```{r map, echo= FALSE, warning=FALSE}
+
+df <- readxl::read_xlsx(here::here(params$gps_locations)) %>%
+  rename(id = `Station ID/Draco locality ID`,
+         lat = Latitude,
+         lon = Longitude) %>%
+  mutate(type = if_else(id %in% c("Hk", "Cr", "Ks", "Ru"), "population", "station"))
+
+
+pal <- colorFactor(c("navy", "red"), domain = c("station", "population"), ordered = T)
+
+
+leaflet(df) %>%
+  setView(lng = 14.2, lat = 49.95, zoom = 11) %>%
+  addProviderTiles(providers$Esri.WorldStreetMap) %>% 
+  addCircleMarkers(
+    color = ~pal(type),
+    fillOpacity = 1,
+    stroke = FALSE,
+    popup = ~htmltools::htmlEscape(Name)) %>%
+  addLegend("bottomright",
+            colors = c("navy", "red"),
+            labels = c("station", "population"),
+            values = ~id, opacity = 1, title = "Locations") %>%
+  addScaleBar()
+
+```
+
+
+## Timeseries of, and correlations between, weather in climate stations
+
+```{r 1, echo= FALSE, warning=FALSE}
+
+clim <- readxl::read_xlsx(here::here(params$climate_dobrichovice)) %>%
+  group_by(Year, Month) %>%
+  summarise(Prec_Dobrichovice = sum(Prec_Dobrichovice),
+            Prec_Lodenice = sum(Prec_Lodenice),
+            Prec_Beroun = sum(Prec_Beroun),
+            Prec_Liten = sum(Prec_Liten)) %>%
+  ungroup(Year) %>%
+  mutate(across(contains("Prec"), ~ scale(.x))) %>%
+  pivot_longer(cols = contains("Prec"), names_to = "station", values_to = "sum_prcp") %>%
+  ungroup()
+
+ggplot(clim) +
+  geom_line(aes(x = Month, y = sum_prcp, colour = station)) + 
+  facet_wrap(vars(Year))
+
+```
+
+Above are the climate (anomalies) plotted across time for all 4 climate stations. As you can see there is a lot of overlap. However, a lot of times when there is no overlap, there's an "extreme" peak that would be very valuable for the climate analysis, if different localities also respond to different stations. 
+
+Below we have the correlation matrix between the 4 different stations.
+
+```{r 1.5, echo=FALSE, warning=FALSE}
+
+pivot_wider(clim, names_from = station, values_from = sum_prcp) %>%
+  select(-c(Year, Month)) %>%
+  cor(.)
+
+
+```
+
+# CHELSA climate
+With the distance between the climate stations and localities it doesn't really make sense to use different stations for each of the populations. However, there's also enough distance between the populations that it might be worthwhile using different climate for each of the localities. Using the gps locations of the localities and climate stations I retrieved climate for these locations from CHELSA.
+
+First up are the correlations between the precipitation data from the stations and those from CHELSA at the same gps locations
+
+```{r}
+
+chelsa <- read.csv(here::here(params$chelsa_data))
+
+cor_prcp <- chelsa %>% 
+  select(-c(Latitude, Longitude)) %>%
+  filter(variable == "prec" & 
+           Name %in% c("Dobrichovice", "Lodenice", "Beroun", "Liten")) %>% pivot_wider(names_from = Name, names_prefix = "chelsa",  values_from = value) %>% 
+  select(-variable) %>% 
+  rename(Year = year, Month = month) %>% 
+  left_join(., pivot_wider(clim, names_from = station, values_from = sum_prcp)) %>%
+  filter(complete.cases(.)) %>%
+  select(-c(Year, Month)) %>%
+  cor(.)
+
+print("Dobrichovice")
+cor_prcp[1,5]
+print("Lodenice")
+cor_prcp[2,6]
+print("Beroun")
+cor_prcp[3,7]
+print("Liten")
+cor_prcp[4,8]
+```
+
+So the correlations between the actual observed precipitation and the modelled climate from CHELSA doesn't appear to be super good. The next question would be, how much climate correlation does CHELSA expect there to be between the localities. If this is really high, it doesn't really matter if we use a single climate sequence for all localities.
+
+
+```{r}
+
+chelsa %>% 
+  select(-c(Latitude, Longitude)) %>%
+  filter(variable == "prec" & 
+           Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>% pivot_wider(names_from = Name, names_prefix = "chelsa",  values_from = value) %>% 
+  select(-c(variable, year, month)) %>%
+  cor(.)
+
+```
+
+That really is very high!
+
+
+# Climate loggers at the localities
+
+```{r 2, echo= FALSE, warning=FALSE}
+
+data_loggers_extract <- function(locality, data_loggers_folder = params$data_loggers_folder) {
+  
+  if(locality == "Ks") {  
+    sheets <- as.list(paste0(locality, c(1,2)))
+  } else {
+    sheets <- as.list(paste0(locality, c(1:3)))
+  }
+  
+  file <- paste0(locality, "_clima.xlsx")
+  
+  df <- lapply(sheets, function(x) readxl::read_xlsx(here::here(data_loggers_folder, file), sheet = x) %>% mutate(date = as.POSIXct(date, format = "%d.%m.%Y %H:%M:%S"))) %>% bind_rows(.id = "id") %>%
+  mutate(id = as.factor(id)) %>%
+  mutate(year = as.integer(format(date, format = "%Y")),
+         month = as.integer(format(date, format = "%m")),
+         day = as.integer(format(date, format = "%d"))) %>%
+  group_by(id, year, month) %>%
+  summarise(temp_below = mean(temp_below, na.rm = T),
+            temp_surface = mean(temp_surface, na.rm = T),
+            temp_above = mean(temp_abobe, na.rm = T),
+            mean_moisture = mean(soil_moisture, na.rm = T),
+            min_moisture = min(soil_moisture, na.rm = T)) %>%
+  ungroup(year) %>%
+  mutate(temp_below_scaled = scale(temp_below),
+         temp_surface_scaled = scale(temp_surface),
+         temp_above_scaled = scale(temp_above),
+         mean_moisture_scaled = scale(mean_moisture),
+         min_moisture_scaled = scale(min_moisture))
+}
+
+Cr <- data_loggers_extract("Cr")
+Hk <- data_loggers_extract("Hk")
+Ks <- data_loggers_extract("Ks")
+Ru <- data_loggers_extract("Ru")
+
+df <- bind_rows(list("Cr" = Cr, 
+            "Hk" = Hk, 
+            "Ks" = Ks, 
+            "Ru" = Ru),
+            .id = "locality")
+
+ggplot(df) + 
+  geom_line(aes(x = month, y = mean_moisture, colour = locality, linetype = id)) + 
+  facet_wrap(vars(year))
+
+ggplot(df) + 
+  geom_line(aes(x = month, y = min_moisture_scaled, colour = locality, linetype = id)) + 
+  facet_wrap(vars(year))
+
+ggplot(df) + 
+  geom_line(aes(x = month, y = temp_below_scaled, colour = locality, linetype = id)) + 
+  facet_wrap(vars(year))
+
+ggplot(df) + 
+  geom_line(aes(x = month, y = temp_surface_scaled, colour = locality, linetype = id)) + 
+  facet_wrap(vars(year))
+
+ggplot(df) + 
+  geom_line(aes(x = month, y = temp_above_scaled, colour = locality, linetype = id)) + 
+  facet_wrap(vars(year))
+
+```
+
+
+

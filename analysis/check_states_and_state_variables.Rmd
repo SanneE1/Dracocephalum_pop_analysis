@@ -1,0 +1,691 @@
+---
+title: "Regressions and plots to determine number of states and state variables"
+author: "Sanne Evers"
+date: "4/11/2022"
+output: pdf_document
+params:
+  raw_data_location: "data/Dracocephalum_with_vital_rates.csv"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+knitr::opts_knit$set(root.dir = '../')
+
+```
+
+
+```{r load_data, echo=F}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+suppressPackageStartupMessages(library(lme4))
+
+data <- read.csv(file = here::here(params$raw_data_location)) %>%
+  mutate(stage_t0 = factor(stage_t0, levels = c("sdl", "flow", "veg")))
+
+```
+# Seedling state; comparing seedlings with small vegetative individuals
+
+Would it make sense to have a seperate seedling stage?
+Seedlings are defined as _newly established plant from last census (or the census before) with longest stem no longer than 10 cm_. So one of the things that I need to know is if there's a difference between seedlings, and vegetative individuals that also only have one stem and are smaller than 10 cm.
+
+First some summary about the seedlings in the data
+```{r summary_sdl, echo=F}
+
+data %>% filter(stage_t0 == "sdl") %>% 
+  summarise(n_stems = mean(n_veg_stems_t0, na.rm = T),
+            max_stems = max(n_veg_stems_t0, na.rm = T),
+            mean_lenght = mean(longest_stem_t0, na.rm = T),
+            min_length = min(longest_stem_t0, na.rm = T),
+            max_length = max(longest_stem_t0, na.rm = T)) %>% 
+  t()
+
+sdl_hist <- hist(data$longest_stem_t0[which(data$stage_t0 == "sdl")], main = "Size distribution of seedling stem size")
+
+```
+
+## Survival  
+We see that if we look at seedlings as a discrete state (i.e. no dependency on a continuous variable), that there is a significant difference in survival probability between seeldings and same sized vegetative individuals.  
+
+```{r 1, echo=F}
+
+data %>% filter(n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0 & longest_stem_t0 <= 10) %>% 
+  group_by(stage_t0) %>% summarise(mean_lenght = mean(longest_stem_t0, na.rm = T),
+                                   surv_prob = mean(survival_t1, na.rm = T))
+
+t.test(survival_t1 ~ stage_t0, data = data %>% 
+         filter(n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0 & longest_stem_t0 <= 10))
+
+
+```
+
+However, it appears that survival for seedlings DOES depend on a continuous variable. With `log(longest_stem_t0)` resulting in a lower AIC than just `longest_stem_t0`:  
+
+```{r 2}
+
+sdl_surv_size_dep2 <- glm(survival_t1 ~ log(longest_stem_t0), 
+                          family = "binomial", 
+                          data = data %>% 
+                            filter(stage_t0 == "sdl"))
+
+summary(sdl_surv_size_dep2)
+
+```
+
+When we model survival we find a significant differences between seedlings and both vegetative and flowering individuals. However we see **NO** significant difference between vegetative and seedling when we only include vegetative individuals of the same size range as seedlings.  
+
+```{r 3, fig.dim=c(15,20)}
+
+sdl_veg_surv1 <- glm(survival_t1 ~ log(longest_stem_t0) + stage_t0, family = "binomial", data = data)
+sdl_veg_surv2 <- glm(survival_t1 ~ log(longest_stem_t0) + stage_t0, family = "binomial", data = data %>% 
+                       filter(n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0))
+
+summary(sdl_veg_surv1)
+summary(sdl_veg_surv2)
+
+ggplot(data %>% 
+         filter(!is.na(longest_stem_t0) & n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0),
+       aes(x = log(longest_stem_t0), y = survival_t1, group = stage_t0, colour = stage_t0)) +
+  geom_jitter(height = 0.1, width = 0.05) +
+  geom_smooth(method = "glm",
+              method.args = (list(family = "binomial"))) + 
+  ggtitle("Survival probability of seedlings and vegetative (with 1 stem) in year_t0, correlated to the (log) lenght of their stem") + 
+  facet_wrap(vars(year_t0), ncol = 3)
+
+```
+**So to conclude.** If we include longest_stem as state variable, we shouldn't have a seperate state for seedlings. However, if we do not use longest_stem as (part of) a state variable, Seedlings could be included as a separate stage. 
+
+## Growth
+We see something similar when we look at growth - no significant difference if you compare seedlings only with vegetative individuals with n_stems_t0 == 1
+
+```{r 4, fig.dim=c(15,20)}
+
+sdl_veg_growth1 <- lm(log(longest_stem_t1) ~ log(longest_stem_t0) + stage_t0, data = data %>% 
+                        filter(longest_stem_t0 > 0 & longest_stem_t1 > 0))
+sdl_veg_growth2 <- lm(log(longest_stem_t1) ~ log(longest_stem_t0) + stage_t0, data = data %>% 
+                        filter(longest_stem_t0 > 0 & longest_stem_t1 > 0 & n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0))
+
+summary(sdl_veg_growth1)
+summary(sdl_veg_growth2)
+
+ggplot(data %>% 
+         filter(longest_stem_t0 > 0 & longest_stem_t1 > 0 & n_veg_stems_t0 == 1 & n_fl_stems_t0 == 0), 
+       aes(x = log(longest_stem_t0), y = log(longest_stem_t1), group = stage_t0, colour = stage_t0)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") + 
+  ggtitle("Growth of seedlings and vegetative (with 1 stem) in year_t0, correlated to the (log) lenght of their stem") + 
+  facet_wrap(vars(year_t0), ncol = 3)
+
+
+```
+
+
+
+# Vegetative and Flowering stage; are there significant differences between the two?
+
+First thing to check: Do vegetative individuals "turn" flowering once, and stay as flowering?? - Doesn't look like it.
+
+```{r 5}
+
+veg_flow <- data %>% filter(stage_t0 %in% c("veg", "flow")) %>%
+  mutate(n_stems_t0 = n_veg_stems_t0 + n_fl_stems_t0,
+         n_stems_t1 = n_veg_stems_t1 + n_fl_stems_t1,
+         volume_t0 = n_veg_stems_t0 * longest_stem_t0,
+         volume_t1 = n_veg_stems_t1 * longest_stem_t1
+  )
+
+
+veg_flow %>% filter(stage_t1 %in% c("veg", "flow")) %>% 
+  group_by(stage_t0, stage_t1) %>%
+  summarise(individuals = n())
+
+
+```
+
+
+## Survival
+
+There is a significant difference in survival rate between flowering and vegetative individuals, although the plots don't look to bad
+
+```{r 6}
+
+veg_flow_surv <- glmer(survival_t1 ~ log(n_stems_t0) + stage_t0 + population + (1|year_t0), family = "binomial", 
+                       data = veg_flow %>% filter(n_stems_t0 > 0))
+summary(veg_flow_surv)
+
+veg_flow_surv_plot <- ggplot(veg_flow, aes(x = log(n_stems_t0), y = survival_t1, group = stage_t0, colour = stage_t0)) +
+  geom_jitter(height = 0.1, width = 0.05) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) + 
+  ggtitle("Survival of vegetative and flowering individuals in year_t0") 
+
+veg_flow_surv_plot1 <- veg_flow_surv_plot + facet_wrap(vars(year_t0), ncol = 3) 
+
+veg_flow_surv_plot
+
+```
+
+```{r 7, fig.dim=c(15,20)}
+
+veg_flow_surv_plot1
+
+```
+
+
+### Here are the same graphs, but with volume (n_stems * longest_stem) as state variable
+
+```{r 8}
+
+
+veg_flow_surv <- glmer(survival_t1 ~ log(volume_t0) + stage_t0 + population + (1|year_t0), family = "binomial", 
+                       data = veg_flow %>% filter(volume_t0 > 0))
+summary(veg_flow_surv)
+
+veg_flow_surv_plot2 <- ggplot(veg_flow, aes(x = log(volume_t0), y = survival_t1, group = stage_t0, colour = stage_t0)) +
+  geom_jitter(height = 0.1, width = 0.05) +
+  geom_smooth(method = "glm",
+              method.args = (list(family = "binomial"))) + 
+  ggtitle("Survival of vegetative and flowering individuals in year_t0") 
+
+veg_flow_surv_plot3 <- veg_flow_surv_plot2 + facet_wrap(vars(year_t0), ncol = 3)
+
+
+veg_flow_surv_plot2
+
+```
+
+```{r 9, fig.dim= c(15,20)}
+
+veg_flow_surv_plot3
+
+```
+
+
+
+## Growth
+
+When using both n_stems and volume (n_stems * longest_stem) give a significant difference between vegetative and flowering individuals. When looking at the graphs, the difference does seem to be minimal in most years.
+
+```{r 10}
+
+veg_flow_growth_plot1 <- ggplot(veg_flow, aes(x = log(n_stems_t0), y = log(n_stems_t1), group = stage_t0, colour = stage_t0)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") + 
+  ggtitle("Growth of vegetative and flowering individuals from year_t0 to year_t1") 
+
+veg_flow_growth_plot2 <- veg_flow_growth_plot1 + 
+  facet_wrap(vars(year_t0), ncol = 3)
+
+veg_flow_growth_plot3 <- ggplot(veg_flow, aes(x = log(volume_t0), y = log(volume_t1), group = stage_t0, colour = stage_t0)) +
+  geom_jitter() +
+  geom_smooth(method = "lm") + 
+  ggtitle("Growth of vegetative and flowering individuals from year_t0 to year_t1") 
+
+veg_flow_growth_plot4 <- veg_flow_growth_plot3 + 
+  facet_wrap(vars(year_t0), ncol = 3)
+
+veg_flow_growth <- lmer(log(volume_t1) ~ log(volume_t0) + stage_t0 + population + (1|year_t0),
+                        data = veg_flow %>% filter(volume_t0 > 0 & volume_t1 > 0))
+
+summary(veg_flow_growth)
+
+veg_flow_growth_plot1
+
+veg_flow_growth_plot3
+
+```
+
+
+```{r 11, fig.dim=c(15,20)}
+veg_flow_growth_plot2
+
+veg_flow_growth_plot4
+
+```
+
+
+## Flower probability
+Is the chance larger to flower in t_1 if the individual was flowering in t_0?
+
+```{r 12}
+veg_flow_pfl_plot <- ggplot(veg_flow, aes(x = log(n_stems_t1), y = p_flower_t1, group = stage_t0, colour = stage_t0)) +
+  geom_jitter(height = 0.1, width = 0.05) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) +
+  ggtitle("Probability of flowering in year_t1 based on (log) number of stems in year_t1 and stage in year_t0") 
+
+```
+
+```{r 13, fig.dim= c(15,20)}
+
+veg_flow_pfl_plot1 <- veg_flow_pfl_plot + facet_wrap(vars(year_t0))
+
+```
+
+
+# State dependencies
+
+```{r 14}
+# concusion from above is that we should probably throw seedlings in vegetative stage. update stage variable
+data1 <- data %>% 
+  mutate(stage_t0 = ifelse(stage_t0 == "flow", "flow", 
+                           ifelse(stage_t0 %in% c("sdl","veg"), "veg", NA)))  %>% 
+  mutate(n_stems_t0 = (n_veg_stems_t0 + n_fl_stems_t0),
+         n_stems_t1 = (n_veg_stems_t1 + n_fl_stems_t0),
+         volume_t0 = (n_veg_stems_t0 + n_fl_stems_t0) * longest_stem_t0,
+         volume_t1 = (n_veg_stems_t1 + n_fl_stems_t1) * longest_stem_t1)
+```
+
+## Survival
+
+### State variable
+```{r 15}
+
+
+ggplot(data1, 
+       aes(x = log(n_stems_t0), y = survival_t1)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"))
+
+ggplot(data1, 
+       aes(x = log(n_stems_t0), y = survival_t1, group = stage_t0, colour = stage_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+ggplot(data1, 
+       aes(x = log(volume_t0), y = survival_t1)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+ggplot(data1, 
+       aes(x = log(volume_t0), y = survival_t1, group = stage_t0, colour = stage_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+
+
+
+
+s1 = glm(survival_t1 ~ log(n_stems_t0), family = "binomial", 
+         data = data1 %>% filter(stage_t0 != "dead"))
+s2 = glm(survival_t1 ~ log(volume_t0), family = "binomial", 
+         data = data1 %>% filter(stage_t0 != "dead"))
+
+a <- bbmle::AICtab(s1, s2, weights = T, base = T)
+
+a
+
+summary(eval(as.symbol(attributes(a)$row.names[1])))
+
+```
+
+
+### Base model selection
+
+Below are the models tested and the summary of the model with the lowest AICc
+```{r 16}
+
+
+s_all = glmer(survival_t1 ~ log(n_stems_t0) + population + herb_shading_t0 + shrub_shading_t0 + 
+                soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), family = "binomial", 
+              data = data1 %>% 
+                filter(stage_t0 != "dead"))
+
+confint(s_all, method = "Wald")
+
+s_model <- glmer(survival_t1 ~ log(n_stems_t0) + population + herb_shading_t0 + shrub_shading_t0 +
+                   slope + (1|year_t0), family = "binomial",
+                 data = data1 %>% 
+                   filter(stage_t0 != "dead"))
+
+summary(s_model)
+
+
+```
+
+
+
+## Growth
+
+### State variable
+
+```{r 17}
+
+ggplot(data1, 
+       aes(x = log(n_veg_stems_t0+n_fl_stems_t0), y = log(n_veg_stems_t1+n_fl_stems_t1), colour = stage_t0)) + 
+  geom_point(aes(alpha = 0.8)) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "gaussian"))
+
+ggplot(data1, 
+       aes(x = log((n_veg_stems_t0+n_fl_stems_t0) * longest_stem_t0), 
+           y = log((n_veg_stems_t1 + n_fl_stems_t1) * longest_stem_t1), colour = stage_t0)) + 
+  geom_point(aes(alpha=0.8)) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "gaussian"))
+
+g1 = lm(log(n_stems_t1) ~ log(n_stems_t0), 
+        data = data1 %>% filter(n_stems_t1 > 0 & n_stems_t0 > 0))
+
+g2 = lm(log(volume_t1) ~ log(volume_t0) ,  
+        data = data1 %>% filter(volume_t1 > 0 & volume_t0 > 0))
+
+
+
+b <- bbmle::AICtab(g1, g2, weights = T, base = T)
+
+b
+
+summary(eval(as.symbol(attributes(b)$row.names[1])))
+
+
+```
+
+### Base model selection
+
+Below are the models tested and the summary of the model with the lowest AICc
+```{r 18}
+
+
+# Only herb shading (besides n_stems) has CI not overlapping 0
+g_all = lmer(log(n_stems_t1) ~ log(n_stems_t0) + population + 
+               herb_shading_t0 + shrub_shading_t0 + 
+               soil_d1 + soil_d2 + soil_d3 + slope + rock + (1|year_t0), 
+             data = data1 %>% 
+               filter(n_stems_t1 > 0 & n_stems_t0 > 0))
+
+confint(g_all, method = "Wald")
+
+g_model <- lmer(log(n_stems_t1) ~ log(n_stems_t0) + 
+                  herb_shading_t0 + (1|year_t0), 
+             data = data1 %>% 
+               filter(n_stems_t1 > 0 & n_stems_t0 > 0))
+
+summary(g_model)
+
+```
+
+## Flower probability
+
+```{r 19}
+
+
+ggplot(data1, 
+       aes(x = log(n_veg_stems_t1+n_fl_stems_t1), y = flower_p_t1, group = stage_t0, colour = stage_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+ggplot(data1, 
+       aes(x = log(n_veg_stems_t0+n_fl_stems_t0), y = flower_p_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"))
+
+ggplot(data1, 
+       aes(x = log((n_veg_stems_t1+n_fl_stems_t1) * longest_stem_t1), y = flower_p_t1, group = stage_t0, colour = stage_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+ggplot(data1, 
+       aes(x = log((n_veg_stems_t0+n_fl_stems_t0) * longest_stem_t0), y = flower_p_t0)) + 
+  geom_jitter(height = 0.01) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial")) 
+
+
+fp1 = glm(flower_p_t0 ~ log(n_stems_t0), family = "binomial", 
+          data = data1 %>% 
+            filter(n_stems_t0 > 0))
+
+fp2 = glm(flower_p_t0 ~ log(volume_t0), family = "binomial", 
+          data = data1 %>% 
+            filter(volume_t0 > 0))
+
+
+
+
+c <- bbmle::AICtab(fp1, fp2, weights = T, base = T)
+
+c
+
+summary(eval(as.symbol(attributes(c)$row.names[1])))
+
+```
+
+### Base model selection
+
+Below are the models tested and the summary of the model with the lowest AICc
+```{r 20}
+
+fp_all = glmer(flower_p_t0 ~ log(n_stems_t0) + population + 
+                 herb_shading_t0 + shrub_shading_t0 + 
+                 soil_d1 + soil_d2 + soil_d3 + rock + slope + 
+                 (1|year_t0), family = "binomial", 
+               data = data1 %>% 
+                 filter(n_stems_t0 > 0))
+
+confint(fp_all, method = "Wald")
+
+fp_model <- glmer(flower_p_t0 ~ log(n_stems_t0) + 
+                    population + shrub_shading_t0 + 
+                 soil_d3 + slope + (1|year_t0), 
+                 family = "binomial", 
+               data = data1 %>% 
+                 filter(n_stems_t0 > 0))
+  
+summary(fp_model)
+  
+```
+
+
+## Flower/seed numbers
+
+1) OK, so taking the obvious; number of flowering stalks, is problematic as n_fl_stems is also used to calculated both n_stems and volume.  
+2) One option would be to calculate the probability of a stalk to "turn" into a flowering stem, and either use a fixed probability or size dependency.  
+3) Another option would be to skip flower stems and calculate the total number of seeds, but that would again be calculated by multiplying the average seeds per stem on an individual by the n_fl_stems. Here another issue would be the large number of individuals that don't produce any seeds (n = `r nrow(data1 %>% filter(flower_p_t0 == 1 & data1$av_seeds_n_t0 == 0))`), which might cause problems when modeling because predictions could be negative (with average numbers (not integers) I can't use a poisson, and with 0's I also can't use a gamma distribution).
+4) Include an extra vital rate ("abortion probability") i.e., probability that even if you flower, you don't produce seeds, and then the n_seeds is modeled, conditional on fp == 1 and ab_p == 0
+
+4 is by probably the best solution here (see graphs below for the 4 options)
+
+
+
+```{r 21}
+
+fn_data <- data1 %>% filter(flower_p_t0 == 1) %>%
+  mutate(frac_fl_stems_t0 = n_fl_stems_t0 / n_stems_t0)
+
+
+ggplot(fn_data, 
+       aes(x = log(n_stems_t0), y = log(n_fl_stems_t0))) + 
+  geom_point(aes(alpha = 0.8)) + 
+  geom_smooth(method = "glm",
+              method.args = list(family = "gaussian"))
+
+hist(fn_data$frac_fl_stems_t0)
+
+ggplot(fn_data,
+       aes(x = log(n_stems_t0), y = frac_fl_stems_t0)) + 
+  geom_point(alpha = 0.8)
+
+ggplot(fn_data, aes(x = log(n_stems_t0), y = log(est_seed_n_t0))) +
+  geom_point(alpha = 0.8) + 
+  geom_smooth(method = "lm")
+
+print("4th option")
+
+ggplot(fn_data, aes(x = log(n_stems_t0), y = seed_p_t0)) +
+  geom_jitter(alpha = 0.8) +
+  geom_smooth(method = "glm",
+              method.args = list(family = "binomial"))
+
+
+ggplot(fn_data %>% filter(av_seeds_n_t0 > 0), aes(x = log(n_stems_t0), y = log(est_seed_n_t0)))+
+  geom_point(alpha = 0.8) + 
+  geom_smooth(method = "lm") +
+  ggtitle("estimated number of seeds per individual (av_n_seeds_t0 * n_fl_stems_t0)", 
+          subtitle = "conditioned on p_flower == 1 and abortion_p == 0")
+
+
+hist(log((fn_data %>% filter(av_seeds_n_t0 > 0))$est_seed_n_t0))
+
+
+ab <- glm(seed_p_t0 ~ log(n_stems_t0), data = fn_data, family = "binomial")
+
+n_seeds <- glm(est_seed_n_t0 ~ log(n_stems_t0), data = fn_data %>% filter(seed_p_t0 == 1),
+               family = Gamma(link = log))
+
+
+print("gamma shape")
+MASS::gamma.shape(n_seeds)
+
+summary(n_seeds)
+
+print("summary model outpute with dispersion corrected using 1/alpha above")
+summary(n_seeds, dispersion = 1/MASS::gamma.shape(n_seeds)$alpha)
+
+```
+
+### Base model selection
+
+
+```{r 22}
+
+ab_all <-  glmer(seed_p_t0 ~ log(n_stems_t0) +
+                   population + 
+                   herb_shading_t0 + shrub_shading_t0 + 
+                   soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), 
+                 data = fn_data, 
+                 family = "binomial")
+
+confint(ab_all, method = "Wald")
+
+## CI not spanning 0: population, shrub_shading, soil_d3
+ab_model <-  glmer(seed_p_t0 ~ log(n_stems_t0) +
+                   population + shrub_shading_t0 + 
+                   soil_d3 + (1|year_t0), 
+                 data = fn_data, 
+                 family = "binomial")
+
+
+# number of seeds
+ns_all <- glmer(est_seed_n_t0 ~ log(n_stems_t0) +
+                population + 
+                herb_shading_t0 + shrub_shading_t0 + 
+                soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), 
+              data = fn_data %>% 
+                filter(seed_p_t0 == 1),
+               family = Gamma(link = log))
+
+confint(ns_all, method = "Wald")
+
+## CI not spanning 0: population + shrub_shading
+
+sn_model <- glmer(est_seed_n_t0 ~ log(n_stems_t0) + population + 
+                    shrub_shading_t0 + (1|year_t0), 
+              data = fn_data %>% 
+                filter(seed_p_t0 == 1),
+              family = Gamma(link = log))
+
+summary(sn_model)
+
+```
+
+# State-independent vital rates
+
+## Seed viability
+
+```{r}
+
+seed_vial <- readxl::read_xlsx(here::here("data/seed_viability.xlsx"))
+
+hist(seed_vial$viable_proportion)
+
+
+seed_vial %>%
+  summarise(viable_prop = mean(viable_proportion, na.rm = T),
+            viable_sd = sd(viable_proportion, na.rm = T))
+
+seed_vial %>%
+  group_by(locality) %>%
+  summarise(viable_prop = mean(viable_proportion, na.rm = T),
+            viable_sd = sd(viable_proportion, na.rm = T))
+
+seed_vial %>%
+  group_by(year) %>%
+  summarise(viable_prop = mean(viable_proportion, na.rm = T),
+            viable_sd = sd(viable_proportion, na.rm = T))
+
+
+
+```
+
+
+
+
+# Lifecycle diagram
+
+
+```{r 23}
+
+DiagrammeR::grViz("
+    digraph circles {
+    
+    graph [overlap = false]
+    
+    node [shape    = box,
+          fontname = Helvetica,
+          nodesep  = 2.0,
+          fontsize = 14,
+          width = 0.9,
+          height = 0.9]
+    Plants
+    
+    node [shape    = circle,
+          fontname = Helvetica,
+          nodesep  = 2.0,
+          fontsize = 12]
+    Seedlings
+    
+    node [shape    = circle,
+          fontname = Helvetica,
+          nodesep  = 2.0,
+          fontsize = 10]
+    Seedbank_yr1
+    
+    node [shape    = circle,
+          fontname = Helvetica,
+          nodesep  = 2.0,
+          fontsize = 10]
+    Seedbank_yr2
+    
+    {rank=same; Plants; Seedlings}
+    {rank=same; }
+    {rank=same; Seedbank_yr1; Seedbank_yr2}
+    
+    Plants:n -> Plants:w [label = 'survival[FLM] * growth[FLM]']
+    Plants -> Seedbank_yr1 [label = 'f_n[FLM] * n_seeds[FLM] * 
+    surv_seed[0.578] * (1-germ[SI_est])']
+    Seedbank_yr1 -> Seedbank_yr2 [label = '(1-germ[SI_est]) * 
+    surv_seed[0.154]']
+    Seedbank_yr1 -> Seedlings [label = 'surv_seed[0.154] *
+    germ[SI_est]']
+    Seedbank_yr2 -> Seedlings [label = 'surv_seed[0.667] *
+    germ[SI_est]']
+    Seedlings -> Plants[label = 'sdl_surv[SI_est] * d_size[SI_est]']
+    Plants:n -> Seedlings:n [label = 'f_n[FLM] * n_seeds[FLM] * 
+    surv_seed[0.578] * germ[SI_est]']
+                    
+
+    }    
+        
+  ") 
+
+
+```
+
+
