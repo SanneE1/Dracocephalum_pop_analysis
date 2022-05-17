@@ -72,5 +72,9 @@ list(
   tar_target(
     state_independent_variables,
     estimate_non_state_dependent_variables(data_for_modeling)
+  ),
+  tar_target(
+    ipm_analyses,
+    run_ipm_analyses(VR_FLM, state_independent_variables, lag = 48)
   )
 )
