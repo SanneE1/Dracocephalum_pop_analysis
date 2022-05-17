@@ -1,4 +1,6 @@
-/data
+/data/
+/results/
+/_targets/
 
 
 # History files
