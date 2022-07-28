@@ -54,10 +54,8 @@ FLM_clim_predict <- function(model, lag_vec,
   )
 }
 
-
-run_ipm <- function(params, env_params, locality, 
-                    n_it = n_it, U, L, n){
-  
+proto_ipm <- function(params, env_params, locality, 
+                      n_it = n_it, U, L, n) {
   init_ipm("general", "di", "stoch", "param") %>%
     define_kernel(
       name      = "P_loc",
@@ -281,7 +279,15 @@ run_ipm <- function(params, env_params, locality,
         n_sb2 = 20,
         n_sdl = 20
       )
-    ) %>%
+    )
+}
+
+
+run_ipm <- function(params, env_params, locality, 
+                    n_it = n_it, U, L, n){
+  
+   proto_ipm(params, env_params, locality, 
+             n_it, U, L, n) %>%
     make_ipm(
       iterate = T,
       iterations = n_it,
@@ -334,6 +340,9 @@ ipm_loop <- function(i, df_env, params,
   
   return(df1)
 }
+
+
+
 
 # ipm_elast <- function(params = params,
 #                       mean_env_params, mean_lambda, 
