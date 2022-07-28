@@ -8,19 +8,19 @@ clim_l <- read.csv('data/CHELSA_data.csv') %>%
   arrange(year, month) %>% pivot_longer(c("tas_scaled", "pr_scaled", "pet_scaled"), names_to = "variable", values_to = "value") %>%
   split(., list(.$locality, .$variable) ) %>% 
   lapply(., function(x) 
-    ts(x %>% filter(complete.cases(x)) %>% dplyr::select(value), 
-       frequency = 12, start = c(x$year[1],x$month[1]))) %>%
+    x %>% filter(complete.cases(x) & year %in% c(1985:2014)) %>% dplyr::select(value) %>%
+      ts(., frequency = 12, start = c(1985,1))) %>%
   lapply(., auto.arima)
 
 
 fut_l <- read.csv("data/CHELSA_future_ts_formatted.csv") %>%
-  filter(scenario != "historical") %>%
+  filter(scenario != "historical" & complete.cases(.)) %>%
   dplyr::select(locality, model, scenario, month, year, tas_scaled, pr_scaled, pet_scaled) %>%
   arrange(year, month) %>% pivot_longer(c("tas_scaled", "pr_scaled", "pet_scaled"), names_to = "variable", values_to = "value") %>%
   split(., list(.$locality, .$model, .$scenario, .$variable) ) %>% 
   lapply(., function(x) 
-    ts(x %>% filter(complete.cases(x)) %>% dplyr::select(value), 
-       frequency = 12, start = c(x$year[1],x$month[1]))) %>%
+    x %>% filter(complete.cases(x) & year > 2070) %>% dplyr::select(value) %>%
+      ts(. , frequency = 12, start = c(2071,1))) %>%
   lapply(., auto.arima)
 
 
