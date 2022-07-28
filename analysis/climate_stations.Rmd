@@ -4,7 +4,7 @@ author: "Sanne Evers"
 date: "4/28/2022"
 output: pdf_document
 params:
-  gps_locations: "data/Draco clima GPS.xlsx"
+  gps_locations: "data/Draco_locations.csv"
   data_loggers_folder: "data/clima/"
   climate_dobrichovice: "data/climatic data Dobrichovice.xlsx"
   chelsa_data: "data/CHELSA_data.csv"
@@ -21,8 +21,8 @@ suppressPackageStartupMessages(library(tidyverse))
 
 ```{r map, echo= FALSE, warning=FALSE}
 
-df <- readxl::read_xlsx(here::here(params$gps_locations)) %>%
-  rename(id = `Station ID/Draco locality ID`,
+df <- read.csv(here::here(params$gps_locations)) %>%
+  rename(id = `Station.ID.Draco.locality.ID`,
          lat = Latitude,
          lon = Longitude) %>%
   mutate(type = if_else(id %in% c("Hk", "Cr", "Ks", "Ru"), "population", "station"))
@@ -76,57 +76,71 @@ Below we have the correlation matrix between the 4 different stations.
 ```{r 1.5, echo=FALSE, warning=FALSE}
 
 pivot_wider(clim, names_from = station, values_from = sum_prcp) %>%
-  select(-c(Year, Month)) %>%
+  dplyr::select(-c(Year, Month)) %>%
   cor(.)
 
 
 ```
 
 # CHELSA climate
-With the distance between the climate stations and localities it doesn't really make sense to use different stations for each of the populations. However, there's also enough distance between the populations that it might be worthwhile using different climate for each of the localities. Using the gps locations of the localities and climate stations I retrieved climate for these locations from CHELSA.
-
-First up are the correlations between the precipitation data from the stations and those from CHELSA at the same gps locations
-
-```{r}
-
-chelsa <- read.csv(here::here(params$chelsa_data))
-
-cor_prcp <- chelsa %>% 
-  select(-c(Latitude, Longitude)) %>%
-  filter(variable == "prec" & 
-           Name %in% c("Dobrichovice", "Lodenice", "Beroun", "Liten")) %>% pivot_wider(names_from = Name, names_prefix = "chelsa",  values_from = value) %>% 
-  select(-variable) %>% 
-  rename(Year = year, Month = month) %>% 
-  left_join(., pivot_wider(clim, names_from = station, values_from = sum_prcp)) %>%
-  filter(complete.cases(.)) %>%
-  select(-c(Year, Month)) %>%
-  cor(.)
-
-print("Dobrichovice")
-cor_prcp[1,5]
-print("Lodenice")
-cor_prcp[2,6]
-print("Beroun")
-cor_prcp[3,7]
-print("Liten")
-cor_prcp[4,8]
-```
-
-So the correlations between the actual observed precipitation and the modelled climate from CHELSA doesn't appear to be super good. The next question would be, how much climate correlation does CHELSA expect there to be between the localities. If this is really high, it doesn't really matter if we use a single climate sequence for all localities.
+With the distance between the climate stations and localities it doesn't really make sense to use different stations for each of the populations. However, there's also enough distance between the populations that it might be worthwhile using different climate for each of the localities. Using the gps locations of the localities I retrieved climate for these locations from CHELSA.
 
 
 ```{r}
+chelsa <- read.csv(params$chelsa_data)
 
+print("precipitation")
 chelsa %>% 
-  select(-c(Latitude, Longitude)) %>%
-  filter(variable == "prec" & 
-           Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>% pivot_wider(names_from = Name, names_prefix = "chelsa",  values_from = value) %>% 
-  select(-c(variable, year, month)) %>%
+  dplyr::select(Name, month, year, pr) %>%
+  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+  pivot_wider(names_from = Name, values_from = pr) %>% 
+  dplyr::select(-c(year, month)) %>%
+  filter(complete.cases(.)) %>%
   cor(.)
 
 ```
 
-That really is very high!
+That really is very high! What about the other climate variables?
+
+```{r}
+print("temperature")
+chelsa %>% 
+  dplyr::select(Name, month, year, tas) %>%
+  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+  pivot_wider(names_from = Name, values_from = tas) %>% 
+  dplyr::select(-c(year, month)) %>%
+  filter(complete.cases(.)) %>%
+  cor(.)
+
+print("climate moisture index")
+chelsa %>% 
+  dplyr::select(Name, month, year, cmi) %>%
+  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+  pivot_wider(names_from = Name, values_from = cmi) %>% 
+  dplyr::select(-c(year, month)) %>%
+  filter(complete.cases(.)) %>%
+  cor(.)
+
+print("Potential evapotranspiration")
+chelsa %>% 
+  dplyr::select(Name, month, year, pet) %>%
+  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+  pivot_wider(names_from = Name, values_from = pet) %>% 
+  dplyr::select(-c(year, month)) %>%
+  filter(complete.cases(.)) %>%
+  cor(.)
+
+print("vapor pressure deficit")
+chelsa %>% 
+  dplyr::select(Name, month, year, vpd) %>%
+  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+  pivot_wider(names_from = Name, values_from = vpd) %>% 
+  dplyr::select(-c(year, month)) %>%
+  filter(complete.cases(.)) %>%
+  cor(.)
+
+
+```
 
 
 # Climate loggers at the localities

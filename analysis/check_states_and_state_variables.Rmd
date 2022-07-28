@@ -265,7 +265,7 @@ veg_flow_pfl_plot1 <- veg_flow_pfl_plot + facet_wrap(vars(year_t0))
 # State dependencies
 
 ```{r 14}
-# concusion from above is that we should probably throw seedlings in vegetative stage. update stage variable
+
 data1 <- data %>% 
   mutate(stage_t0 = ifelse(stage_t0 == "flow", "flow", 
                            ifelse(stage_t0 %in% c("sdl","veg"), "veg", NA)))  %>% 
@@ -323,28 +323,6 @@ summary(eval(as.symbol(attributes(a)$row.names[1])))
 ```
 
 
-### Base model selection
-
-Below are the models tested and the summary of the model with the lowest AICc
-```{r 16}
-
-
-s_all = glmer(survival_t1 ~ log(n_stems_t0) + population + herb_shading_t0 + shrub_shading_t0 + 
-                soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), family = "binomial", 
-              data = data1 %>% 
-                filter(stage_t0 != "dead"))
-
-confint(s_all, method = "Wald")
-
-s_model <- glmer(survival_t1 ~ log(n_stems_t0) + population + herb_shading_t0 + shrub_shading_t0 +
-                   slope + (1|year_t0), family = "binomial",
-                 data = data1 %>% 
-                   filter(stage_t0 != "dead"))
-
-summary(s_model)
-
-
-```
 
 
 
@@ -381,30 +359,6 @@ b
 
 summary(eval(as.symbol(attributes(b)$row.names[1])))
 
-
-```
-
-### Base model selection
-
-Below are the models tested and the summary of the model with the lowest AICc
-```{r 18}
-
-
-# Only herb shading (besides n_stems) has CI not overlapping 0
-g_all = lmer(log(n_stems_t1) ~ log(n_stems_t0) + population + 
-               herb_shading_t0 + shrub_shading_t0 + 
-               soil_d1 + soil_d2 + soil_d3 + slope + rock + (1|year_t0), 
-             data = data1 %>% 
-               filter(n_stems_t1 > 0 & n_stems_t0 > 0))
-
-confint(g_all, method = "Wald")
-
-g_model <- lmer(log(n_stems_t1) ~ log(n_stems_t0) + 
-                  herb_shading_t0 + (1|year_t0), 
-             data = data1 %>% 
-               filter(n_stems_t1 > 0 & n_stems_t0 > 0))
-
-summary(g_model)
 
 ```
 
@@ -456,32 +410,6 @@ c
 summary(eval(as.symbol(attributes(c)$row.names[1])))
 
 ```
-
-### Base model selection
-
-Below are the models tested and the summary of the model with the lowest AICc
-```{r 20}
-
-fp_all = glmer(flower_p_t0 ~ log(n_stems_t0) + population + 
-                 herb_shading_t0 + shrub_shading_t0 + 
-                 soil_d1 + soil_d2 + soil_d3 + rock + slope + 
-                 (1|year_t0), family = "binomial", 
-               data = data1 %>% 
-                 filter(n_stems_t0 > 0))
-
-confint(fp_all, method = "Wald")
-
-fp_model <- glmer(flower_p_t0 ~ log(n_stems_t0) + 
-                    population + shrub_shading_t0 + 
-                 soil_d3 + slope + (1|year_t0), 
-                 family = "binomial", 
-               data = data1 %>% 
-                 filter(n_stems_t0 > 0))
-  
-summary(fp_model)
-  
-```
-
 
 ## Flower/seed numbers
 
@@ -547,51 +475,6 @@ summary(n_seeds)
 
 print("summary model outpute with dispersion corrected using 1/alpha above")
 summary(n_seeds, dispersion = 1/MASS::gamma.shape(n_seeds)$alpha)
-
-```
-
-### Base model selection
-
-
-```{r 22}
-
-ab_all <-  glmer(seed_p_t0 ~ log(n_stems_t0) +
-                   population + 
-                   herb_shading_t0 + shrub_shading_t0 + 
-                   soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), 
-                 data = fn_data, 
-                 family = "binomial")
-
-confint(ab_all, method = "Wald")
-
-## CI not spanning 0: population, shrub_shading, soil_d3
-ab_model <-  glmer(seed_p_t0 ~ log(n_stems_t0) +
-                   population + shrub_shading_t0 + 
-                   soil_d3 + (1|year_t0), 
-                 data = fn_data, 
-                 family = "binomial")
-
-
-# number of seeds
-ns_all <- glmer(est_seed_n_t0 ~ log(n_stems_t0) +
-                population + 
-                herb_shading_t0 + shrub_shading_t0 + 
-                soil_d1 + soil_d2 + soil_d3 + rock + slope + (1|year_t0), 
-              data = fn_data %>% 
-                filter(seed_p_t0 == 1),
-               family = Gamma(link = log))
-
-confint(ns_all, method = "Wald")
-
-## CI not spanning 0: population + shrub_shading
-
-sn_model <- glmer(est_seed_n_t0 ~ log(n_stems_t0) + population + 
-                    shrub_shading_t0 + (1|year_t0), 
-              data = fn_data %>% 
-                filter(seed_p_t0 == 1),
-              family = Gamma(link = log))
-
-summary(sn_model)
 
 ```
 
