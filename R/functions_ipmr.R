@@ -1,58 +1,62 @@
 ## simple environmental sampler function. 
 ## Now this is re-calculated for each year (so last years temp doesn't line up with 
 ## the lagged temp in current year)
-sampling_env <- function(time, env_params, init_temp = 0, init_prcp = 0) {
+sampling_env <- function(iteration, env_params, start_year = 2023) {
   
-  lags_est <- matrix(c(1:(env_params$lags + 1)), nrow = 1, ncol = (env_params$lags + 1), byrow = T)
+  lags_sim <- matrix(c(1:(env_params$lags + 1)), nrow = 1, ncol = (env_params$lags + 1), byrow = T)
   
-  t_est <-  matrix(c(init_temp + env_params$yr_increase_temp * time + rnorm(13,0,1),
-                     init_temp + env_params$yr_increase_temp * (time - 1) + rnorm(12,0,1),
-                     init_temp + env_params$yr_increase_temp * (time - 2) + rnorm(12,0,1),
-                     init_temp + env_params$yr_increase_temp * (time - 3) + rnorm(12,0,1)), 
-                   nrow = 1, ncol = (env_params$lags + 1), byrow = T)
+  ### get values for window function
+  mon <- seq(from = 0, to = 0.95, length.out = 12)
+  end <- (start_year + iteration) + mon[7]
+  start <- end - (1/12 * (env_params$lags + 1))
+  
+  pet_sim <- rev(as.numeric(window(env_params[[grep("pet", names(env_params), value = T)]], start, end))) %>%
+    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
+  pr_sim <- rev(as.numeric(window(env_params[[grep("pr", names(env_params), value = T)]], start, end))) %>%
+    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
+  tas_sim <- rev(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start, end))) %>%
+    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
   
   
-  p_est <-  matrix(c(init_prcp + env_params$yr_increase_prcp * time + rnorm(13,0,1),
-                     init_prcp + env_params$yr_increase_prcp * (time - 1) + rnorm(12,0,1),
-                     init_prcp + env_params$yr_increase_prcp * (time - 2) + rnorm(12,0,1),
-                     init_prcp + env_params$yr_increase_prcp * (time - 3) + rnorm(12,0,1)), 
-                   nrow = 1, ncol = (env_params$lags + 1), byrow = T)
-  
-  return(list(lags = lags_est,
-              temp = t_est,
-              precip = p_est,
-              herb_shading = env_params$herb_shading,
-              shrub_shading = env_params$shrub_shading,
-              slope = env_params$slope,
-              soil = env_params$soil))
+  return(list(lags = lags_sim,
+              temp = tas_sim,
+              precip = pr_sim,
+              pet = pet_sim,
+              shading = env_params$shading,
+              slope = env_params$slope
+  ))
 }
 
-FLM_clim_predict <- function(model, lag_vec, temp_vec, precip_vec) {
+FLM_clim_predict <- function(model, lag_vec, 
+                             temp_vec, precip_vec, pet_vec, 
+                             shading) {
   
   ## dummy datalist, won't be using the predictions for n_stems : year_t0 but these need to be provided for predict function
   new_data <- list(
     ln_stems_t0 = 2,  
     population = "CR",
-    herb_shading_t0 = 2,
-    shrub_shading_t0 = 2,
-    slope = 20,
-    year_t0 = 2010,
-    soil_d3 = 4,
+    tot_shading_t0 = 0,
+    slope = 0,
+    year_t0 = 2016,
+    tot_shading_m = matrix(rep(shading, length(lag_vec)), nrow = 1),
     lags = matrix(lag_vec, nrow = 1),
-    Tavg_scaledcovar = matrix(temp_vec, nrow = 1),
-    Prec_scaledcovar = matrix(precip_vec, nrow = 1)
+    tas_scaledcovar = matrix(temp_vec, nrow = 1),
+    pr_scaledcovar = matrix(precip_vec, nrow = 1),
+    pet_scaledcovar = matrix(pet_vec, nrow = 1)
   )
   
   pt <- mgcv::predict.gam(model, new_data, type = "terms")
   
+  
+  
   return(
-    sum(pt[, c('s(lags):Tavg_scaledcovar', 's(lags):Prec_scaledcovar')])
+    sum(pt[, grep("scaledcovar", attributes(pt)[[2]][[2]], value = T)])
   )
 }
 
 
 run_ipm <- function(params, env_params, locality, 
-                    n_it = 200, U, L, n){
+                    n_it = n_it, U, L, n){
   
   init_ipm("general", "di", "stoch", "param") %>%
     define_kernel(
@@ -61,17 +65,23 @@ run_ipm <- function(params, env_params, locality,
       formula   = s_loc * g * d_stems,
       
       s_loc         =  plogis(s_linear_loc),
-      s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + s_herb * herb_shading +
+      s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
+        s_shading * shading + 
         FLM_clim_predict(model = surv_mod, ### spline model prediction
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip), 
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading
+        ), 
       g         =  dnorm(stems_2, g_mu, grow_sd),
-      g_mu      =  g_int + g_stems * stems_1 + g_herb * herb_shading +
+      g_mu      =  g_int + g_stems * stems_1 + 
         FLM_clim_predict(model = grow_mod, 
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip), ### model prediction
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading), ### model prediction
       
       data_list     = params,
       states        = list(c("stems")),
@@ -88,24 +98,29 @@ run_ipm <- function(params, env_params, locality,
       formula = fp_loc * pabort_loc * n_seeds_loc * surv1_seed * germ * d_stems,
       
       fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + 
-        fp_shrub * shrub_shading + fp_slope * slope + fp_soil * soil +
+      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_slope * slope +
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       pabort_loc     = plogis(ab_linear_loc),
-      ab_linear_loc   = ab_int + ab_stems * stems_1 + ab_shrub * shrub_shading + ab_soil * soil +
+      ab_linear_loc   = ab_int + ab_stems * stems_1 +
         FLM_clim_predict(model = pabort_mod,
                          lag_vec = lags,
                          temp_vec = temp,
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       n_seeds_loc     = exp(n_seeds_linear_loc),
-      n_seeds_linear_loc = ns_int + ns_stems * stems_1 + ns_slope * slope +
+      n_seeds_linear_loc = ns_int + ns_stems * stems_1 +
         FLM_clim_predict(model = nseed_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
       
@@ -120,27 +135,32 @@ run_ipm <- function(params, env_params, locality,
     define_kernel(
       name = "F_to_SB1_loc",
       family = "CD",
-      formula = fp_loc * pabort_loc * n_seeds_loc *  surv1_seed * (1-germ) * d_stems,
+      formula = fp_loc * pabort_loc * n_seeds_loc * surv1_seed * (1-germ) * d_stems,
       
       fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + 
-        fp_shrub * shrub_shading + fp_slope * slope + fp_soil * soil +
+      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_slope * slope + 
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       pabort_loc     = plogis(ab_linear_loc),
-      ab_linear_loc   = ab_int + ab_stems * stems_1 + ab_shrub * shrub_shading + ab_soil * soil +
+      ab_linear_loc   = ab_int + ab_stems * stems_1 +
         FLM_clim_predict(model = pabort_mod,
                          lag_vec = lags,
                          temp_vec = temp,
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       n_seeds_loc     = exp(n_seeds_linear_loc),
-      n_seeds_linear_loc = ns_int + ns_stems * stems_1 + ns_slope * slope +
+      n_seeds_linear_loc = ns_int + ns_stems * stems_1 +
         FLM_clim_predict(model = nseed_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
-                         precip_vec = precip),
+                         precip_vec = precip,
+                         pet_vec = pet,
+                         shading = shading),
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
       
@@ -207,9 +227,9 @@ run_ipm <- function(params, env_params, locality,
       formula = sdl_surv_loc * d_size_loc * d_stems,
       
       sdl_surv_loc     = plogis(sdl_s_linear),
-      sdl_s_linear = sdl_s_int + sdl_s_site_loc + sdl_s_herb * herb_shading,
+      sdl_s_linear = sdl_s_int,
       d_size_loc       = dnorm(stems_2, sdl_d_linear, sdl_size_d_sd),
-      sdl_d_linear = sdl_d_int + sdl_d_site_loc + sdl_d_herb * herb_shading,
+      sdl_d_linear = sdl_d_int,
       
       data_list = params,
       states = list(c("sdl", "stems")),
@@ -250,7 +270,7 @@ run_ipm <- function(params, env_params, locality,
       stems = c(L, U, n)
     ) %>%
     define_env_state(
-      env_covs = sample_env(time = t, env_params = env_params),
+      env_covs = sample_env(iteration = t, env_params = env_params),
       data_list = list(env_params = env_params,
                        sample_env = sampling_env)
     ) %>%
@@ -272,63 +292,73 @@ run_ipm <- function(params, env_params, locality,
   
 }
 
-ipm_loop <- function(i, df_env, params = params,
+ipm_loop <- function(i, df_env, params,
+                     climate_models,
                      n_it, U = U, L = L, n = n) {
+  print(i)
+  loc <- df_env$localities[i]
+  clim_mod <- climate_models[[grep(as.character(df_env$scenario[i]), 
+                                   names(climate_models), value = T)]]
+  clim_mod <- clim_mod[grep(as.character(loc), names(clim_mod), value = T)]
+  
+  clim_sim <- lapply(clim_mod, function(x)
+    simulate(x, nsim = ((n_it * 12) + (3*lag))))
   
   # environmental params
-  env_params <- list(
-    lags = lag,
-    yr_increase_temp = 0,
-    yr_increase_prcp = 0,
-    herb_shading = df_env$herb_shading[i],
-    shrub_shading = df_env$shrub_shading[i],
-    slope = df_env$slope[i],
-    soil = df_env$soil[i]
-  )
-  
+  env_params <- append(
+    clim_sim,
+    list(
+      lags = lag,
+      shading = df_env$shading[i],
+      slope = df_env$slope[i]
+    ))
   ipm <- run_ipm(params = params, env_params = env_params, 
-                 locality = as.character(df_env$localities[i]), 
+                 locality = toupper(loc), 
                  n_it = n_it, U = U, L = L, n = n)
   
-  
-  df1 <- as.data.frame(env_params)
-  df1$lambda <- lambda(ipm)
+  df1 <- data.frame(scenario = df_env$scenario[i],
+                    locality = loc,
+                    shading = df_env$shading[i],
+                    slope = df_env$slope[i],
+                    lambda = lambda(ipm))
   
   return(df1)
 }
 
-ipm_elast <- function(params = params,
-                      mean_env_params, mean_lambda, 
-                      pertub_size = 0.01, parameter_perturb,
-                      n_it, U = U, L = L, n = n) {
-  
-  ## perturb parameter in params list
-  params_high <- params
-  params_high[[parameter_perturb]] <- params[[parameter_perturb]] + pertub_size
-  
-  params_low <- params
-  params_low[[parameter_perturb]] <- params[[parameter_perturb]] - pertub_size
-  
-  
-  ipm_high <- run_ipm(params = params_high, env_params = mean_env_params, 
-                      locality = "CR", 
-                      n_it = n_it, U = U, L = L, n = n)
-  
-  ipm_low <- run_ipm(params = params_low, env_params = mean_env_params, 
-                     locality = "CR", 
-                     n_it = n_it, U = U, L = L, n = n)
-  
-  lambda_high <- lambda(ipm_high)
-  lambda_low <- lambda(ipm_low)
-  sensitivity <- (lambda_high - lambda_low)/(2*pertub_size)
-  elasticity <- sensitivity * params[[parameter_perturb]] / mean_lambda
-  
-  
-  return(
-    data.frame(parameter = parameter_perturb,
-               sensitivity = sensitivity,
-               elasticity = elasticity)
-  )
-  
-}
-
+# ipm_elast <- function(params = params,
+#                       mean_env_params, mean_lambda, 
+#                       pertub_size = 0.001, parameter_perturb,
+#                       n_it, U = U, L = L, n = n) {
+#   
+#   print(parameter_perturb)
+#   
+#   ## perturb parameter in params list
+#   params_high <- params
+#   params_high[[parameter_perturb]] <- params[[parameter_perturb]] + pertub_size
+#   
+#   params_low <- params
+#   params_low[[parameter_perturb]] <- params[[parameter_perturb]] - pertub_size
+#   
+#   
+#   ipm_high <- run_ipm(params = params_high, env_params = mean_env_params, 
+#                       locality = "CR", 
+#                       n_it = n_it, U = U, L = L, n = n)
+#   
+#   ipm_low <- run_ipm(params = params_low, env_params = mean_env_params, 
+#                      locality = "CR", 
+#                      n_it = n_it, U = U, L = L, n = n)
+#   
+#   lambda_high <- lambda(ipm_high)
+#   lambda_low <- lambda(ipm_low)
+#   sensitivity <- (lambda_high - lambda_low)/(2*pertub_size)
+#   elasticity <- sensitivity * abs(params[[parameter_perturb]]) / mean_lambda
+#   
+#   
+#   return(
+#     data.frame(parameter = parameter_perturb,
+#                sensitivity = sensitivity,
+#                elasticity = elasticity)
+#   )
+#   
+# }
+# 
