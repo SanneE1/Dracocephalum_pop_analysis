@@ -304,7 +304,7 @@ ipm_loop <- function(i, df_env, params,
   
   clim_mod <- clim_mod[grep(as.character(loc), names(clim_mod), value = T)]
   
-  if(as.character(df_env$time[i]) = "future") {
+  if(as.character(df_env$time[i]) == "future") {
     
     txt <- paste0(df_env$model[i], '.*', df_env$scenario[i])
     clim_mod <- clim_mod[grep(txt, names(clim_mod), value = T)]

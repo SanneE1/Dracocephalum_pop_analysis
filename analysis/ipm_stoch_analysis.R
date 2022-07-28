@@ -6,7 +6,6 @@ getwd()
 library(tidyverse)
 library(lme4)
 library(patchwork)
-library(rethinking)
 library(ipmr)
 library(mgcv)
 library(parallel)
@@ -97,7 +96,7 @@ source("R/functions_ipmr.R")
   shading <- seq(0,8, length.out = 3)
   slope <- seq(0,80, length.out = 3)
 
-  model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
+  model <- c("ACCESS1", "CESM1") #, "CMCC", "MIROC5")
   scenario <- c("rcp45", "rcp85")
   
   df_env_hist <- expand.grid(localities = localities, 
@@ -118,7 +117,7 @@ source("R/functions_ipmr.R")
   df_env <- rbind(df_env_hist, df_env_fut) %>% 
     mutate(localities = as.character(localities))
   
-  rep <- rep(c(1:nrow(df_env)), each = 1)
+  rep <- rep(c(1:nrow(df_env)), each = 10)
   
   
   ### Set up parallel
