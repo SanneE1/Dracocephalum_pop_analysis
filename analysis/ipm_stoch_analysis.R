@@ -1,6 +1,12 @@
 ## This script calculates lambda for different environmental variable levels
 ## under asymptotic behaviour (i.e. long run simulations)
 
+getwd()
+
+args = commandArgs(trailingOnly = T)
+
+setwd(args[1])
+
 source("R/functions_ipmr.R")
 
   VR_FLM <- readRDS("results/VR_FLM.rds")
@@ -8,7 +14,7 @@ source("R/functions_ipmr.R")
   climate_models <- readRDS("results/ARIMA_clim_mods.rds")
   
   lag = 24
-  n_it = 10
+  n_it = 1000
   # param/model list 
   params <- list(
     surv_mod = VR_FLM$surv,
@@ -78,18 +84,34 @@ source("R/functions_ipmr.R")
   ##------------------------------------------------------------------------------
   
   ### Loop through different populations and env_param levels 
-  localities <- c("Cr")
-  shading <- seq(0,8, length.out = 5)
-  slope <- seq(0,75, length.out = 4)
-  scenarios <- c("hist", "future")
+  localities <- c("Cr", "Hk", "Ks", "Ru")
+  shading <- seq(0,8, length.out = 3)
+  slope <- seq(0,80, length.out = 3)
+
+  model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
+  scenario <- c("rcp45", "rcp85")
   
-  df_env <- expand.grid(localities = localities, 
+  df_env_hist <- expand.grid(localities = localities, 
                         shading = shading, 
                         slope = slope,
-                        scenario = scenarios
-  ) %>% mutate(localities = as.character(localities))
+                        time = "hist",
+                        scenario = NA,
+                        model = NA
+  ) 
+  df_env_fut <- expand.grid(localities = localities, 
+                             shading = shading, 
+                             slope = slope,
+                             time = "future",
+                             scenario = scenario,
+                             model = model
+  ) 
+  
+  df_env <- rbind(df_env_hist, df_env_fut) %>% 
+    mutate(localities = as.character(localities))
   
   rep <- rep(c(1:nrow(df_env)), each = 1)
+  
+  
   ### Set up parallel
   cl <- makeForkCluster(outfile = "")  
   clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm", 

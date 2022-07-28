@@ -74,7 +74,7 @@ source("analysis/ipm_det_analysis.R")
 # result/deterministic_ipm.rds
 
 # Long-term IPM with climate & environmental variables
-# takes a long time. With submit_ipm_stoch.sh it can be run on the UFZ HPC
+# takes a long time. With submit_stoch_ipm.sh it can be run on the UFZ HPC
 source("analysis/ipm_stoch_analysis.R")
 # File produced:
 # result/overview_lambda_env_levels.csv

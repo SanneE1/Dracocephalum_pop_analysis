@@ -297,8 +297,11 @@ ipm_loop <- function(i, df_env, params,
                      n_it, U = U, L = L, n = n) {
   print(i)
   loc <- df_env$localities[i]
-  clim_mod <- climate_models[[grep(as.character(df_env$scenario[i]), 
+  
+  
+  clim_mod <- climate_models[[grep(as.character(df_env$time[i]), 
                                    names(climate_models), value = T)]]
+  
   clim_mod <- clim_mod[grep(as.character(loc), names(clim_mod), value = T)]
   
   clim_sim <- lapply(clim_mod, function(x)
@@ -316,7 +319,7 @@ ipm_loop <- function(i, df_env, params,
                  locality = toupper(loc), 
                  n_it = n_it, U = U, L = L, n = n)
   
-  df1 <- data.frame(scenario = df_env$scenario[i],
+  df1 <- data.frame(time = df_env$time[i],
                     locality = loc,
                     shading = df_env$shading[i],
                     slope = df_env$slope[i],
