@@ -24,7 +24,7 @@ source("analysis/data_formatting.R")
 # Climate data
 # ----------------------------------------------------------------------
 
-# Run "data/CHELSA_data_get_using_Python.R" manually. You'll need to switch to python
+# Run "R/CHELSA_data_get_using_Python.R" manually. You'll need to switch to python
 # and copy paste the lines produced in the 1st half of the script. After downloading through 
 # python you continueu on with data processing in R (more details in script)
 # File produced: 
@@ -32,7 +32,7 @@ source("analysis/data_formatting.R")
 
 # Download .nc files from here first: https://envicloud.wsl.ch/#/?prefix=chelsa%2Fchelsa_V1%2Fchelsa_cmip5_ts
 # then run: 
-# source("data/CHELSA_future_ts_extract_and_format.R")
+# source("R/CHELSA_future_ts_extract_and_format.R")
 # File produced: 
 # "data/CHELSA_future_ts_formatted.csv"
 
