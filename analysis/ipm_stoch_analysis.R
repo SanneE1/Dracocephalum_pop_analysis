@@ -3,6 +3,15 @@
 
 getwd()
 
+library(tidyverse)
+library(lme4)
+library(patchwork)
+library(rethinking)
+library(ipmr)
+library(mgcv)
+library(parallel)
+library(forecast)
+
 args = commandArgs(trailingOnly = T)
 
 setwd(args[1])
