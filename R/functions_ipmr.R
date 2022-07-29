@@ -335,6 +335,8 @@ ipm_loop <- function(i, df_env, params,
   
   df1 <- data.frame(time = df_env$time[i],
                     locality = loc,
+                    model = df_env$model[i],
+                    scenario = df_env$scenario[i],
                     shading = df_env$shading[i],
                     slope = df_env$slope[i],
                     lambda = lambda(ipm))

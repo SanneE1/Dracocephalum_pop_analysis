@@ -33,7 +33,7 @@ params <- list(
   s_site_KS = coef(VR_FLM$surv)[4],
   s_site_RU = coef(VR_FLM$surv)[5],
   s_shading = coef(VR_FLM$surv)[6],
-
+  
   grow_mod = VR_FLM$growth,
   g_int = coef(VR_FLM$growth)[1],
   g_stems = coef(VR_FLM$growth)[2],
@@ -55,7 +55,7 @@ params <- list(
   ab_site_HK = coef(VR_FLM$abort_p)[3],
   ab_site_KS = coef(VR_FLM$abort_p)[4],
   ab_site_RU = coef(VR_FLM$abort_p)[5],
- 
+  
   nseed_mod = VR_FLM$n_seeds,
   ns_int = coef(VR_FLM$n_seeds)[1],
   ns_stems = coef(VR_FLM$n_seeds)[2],
@@ -131,11 +131,13 @@ clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 
 df <- parLapplyLB(cl,
                   as.list(rep),
-                  function(x) ipm_loop(i = x, df_env = df_env,
-                                       params = params, 
-                                       climate_models = climate_models,
-                                       n_it = n_it, 
-                                       U = U, L = L, n = n)) %>% bind_rows()
+                  function(x) tryCatch(ipm_loop(i = x, df_env = df_env,
+                                                params = params, 
+                                                climate_models = climate_models,
+                                                n_it = n_it, 
+                                                U = U, L = L, n = n),
+                                       error = function(e) NULL)) %>% 
+  bind_rows()
 
 stopCluster(cl)
 
