@@ -266,7 +266,15 @@ proto_ipm <- function(params, env_params, locality,
     ) %>%
     define_domains(
       stems = c(L, U, n)
-    ) %>%
+    ) 
+}
+
+
+run_ipm <- function(params, env_params, locality, 
+                    n_it = n_it, U, L, n){
+  
+   proto_ipm(params, env_params, locality, 
+             n_it, U, L, n) %>%
     define_env_state(
       env_covs = sample_env(iteration = t, env_params = env_params),
       data_list = list(env_params = env_params,
@@ -279,15 +287,7 @@ proto_ipm <- function(params, env_params, locality,
         n_sb2 = 20,
         n_sdl = 20
       )
-    )
-}
-
-
-run_ipm <- function(params, env_params, locality, 
-                    n_it = n_it, U, L, n){
-  
-   proto_ipm(params, env_params, locality, 
-             n_it, U, L, n) %>%
+    ) %>%
     make_ipm(
       iterate = T,
       iterations = n_it,
@@ -318,7 +318,8 @@ ipm_loop <- function(i, df_env, params,
   }
     
   clim_sim <- lapply(clim_mod, function(x)
-    simulate(x, nsim = ((n_it * 12) + (3*lag))))
+    simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
+      ts(., start= c(2023,1), frequency = 12))
   
   # environmental params
   env_params <- append(
