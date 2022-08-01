@@ -93,8 +93,8 @@ n = 100
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- seq(0,8, length.out = 3)
-slope <- seq(0,80, length.out = 3)
+shading <- seq(0,8, length.out = 9)
+slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
