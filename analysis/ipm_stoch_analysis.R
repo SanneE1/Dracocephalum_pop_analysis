@@ -22,7 +22,7 @@ state_independent_variables <- readRDS("results/state_independent_VR.rds")
 climate_models <- readRDS("results/ARIMA_clim_mods.rds")
 
 lag = 24
-n_it = 1000
+n_it = 10000
 # param/model list 
 params <- list(
   surv_mod = VR_FLM$surv,
@@ -93,8 +93,8 @@ n = 100
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- seq(0,8, length.out = 3)
-slope <- seq(0,80, length.out = 3)
+shading <- seq(0,8, length.out = 9)
+slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
@@ -143,3 +143,4 @@ stopCluster(cl)
 
 write.csv(df, file = "results/overview_lambda_env_levels.csv", 
           row.names = F)
+
