@@ -344,6 +344,67 @@ ipm_loop <- function(i, df_env, params,
   return(df1)
 }
 
+ipm_ext_p <- function(i, df_env, params,
+                      clim_ts,
+                      n_it, U = U, L = L, n = n) {
+  
+  
+  scenario <- df_env$scenario[i]
+  model <- df_env$model[i]
+  locality <- df_env$localities[i]
+  
+  txt <- paste(locality, model, scenario, sep = '.*')
+  clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
+    lapply(., function(x) x$value)
+  
+  env_params <- append(
+    clim_mod,
+    list(lags = lag,
+         shading = df_env$shading[i],
+         slope = df_env$slope[i]
+    ))
+  
+  
+  a <- proto_ipm(params = params, env_params = env_params, locality = toupper(locality),
+                 n_it = n_it, U = U, L = L, n = n) %>%
+    define_env_state(
+      env_covs = sample_env(iteration = t, env_params = env_params, start_year = 2006),
+      data_list = list(env_params = env_params,
+                       sample_env = sampling_env)
+    ) %>%
+    define_pop_state(
+      pop_vectors = list(
+        n_stems = pop_vec,
+        n_sb1 = 2000,
+        n_sb2 = 2000,
+        n_sdl = sdl_n
+      )
+    ) %>%
+    make_ipm(
+      iterate = TRUE,
+      iterations = n_it,
+      kernel_seq = rep(toupper(locality), n_it),
+      usr_funs = list(FLM_clim_predict = FLM_clim_predict),
+      return_sub_kernels = TRUE,
+      normalize_pop_size = FALSE
+    )
+  
+  pop_time <- apply(a$pop_state$n_stems, 2, sum)
+  
+  b <- data.frame(
+    locality = locality,
+    model = model,
+    scenario = scenario,
+    shading = df_env[i],
+    slope = df_env[i],
+    below_ext_size = any(pop_time < 50), 
+    yr_of_ext = ifelse(any(pop_time < 50), min(which(pop_time < 50)), NA)
+  )
+  b$pop_size = list(apply(a$pop_state$n_stems, 2, sum))
+  
+  return(b)
+  
+}
 
 
 
