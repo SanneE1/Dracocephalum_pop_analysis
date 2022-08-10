@@ -76,7 +76,7 @@ plot_spline_coeff <- function(best_model,
 
    tas_scaledcovar= 0; pr_scaledcovar = 0; pet_scaledcovar = 0
    tot_shading_m = 0; slope_m = 0; rock_m = 0; soil_m= 0
-   interact = ""; covar=""
+   interact = ""; covar=""; legendtitle = ""
    
    if(tas) {
      tas_scaledcovar = 1
