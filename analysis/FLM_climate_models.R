@@ -74,16 +74,19 @@ data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth']
 
 smooth_forms <- list(
   null = "",
+  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/3, by= tas_scaledcovar)',
   tas_slope = '+ te(lags, slope_m, k=lag/3, by= tas_scaledcovar)',
   tas_rock = '+ te(lags, rock_m, k=lag/3, by= tas_scaledcovar)',
   tas_soil = '+ te(lags, soil_m, k=lag/3, by= tas_scaledcovar)',
+  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
   pr8 = '+ s(lags, k=lag/3, by= pr_scaledcovar)',
   pr_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pr_scaledcovar)',
   pr_slope = '+ te(lags, slope_m, k=lag/3, by= pr_scaledcovar)',
   pr_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
   pr_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)',
+  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
   pet8 = '+ s(lags, k=lag/3, by= pet_scaledcovar)',
   pet_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pet_scaledcovar)',
   pet_slope = '+ te(lags, slope_m, k=lag/3, by= pet_scaledcovar)',
@@ -93,16 +96,19 @@ smooth_forms <- list(
 
 smooth_forms0 <- list(
   null = "",
+  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/4, by= tas_scaledcovar)',
   tas_slope = '+ te(lags, slope_m, k=lag/3, by= tas_scaledcovar)',
   tas_rock = '+ te(lags, rock_m, k=lag/3, by= tas_scaledcovar)',
   tas_soil = '+ te(lags, soil_m, k=lag/3, by= tas_scaledcovar)',
+  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
   pr8 = '+ s(lags, k=lag/3, by= pr_scaledcovar)',
   pr_tot = '+ te(lags, tot_shading_m, k=lag/4, by= pr_scaledcovar)',
   pr_slope = '+ te(lags, slope_m, k=lag/3, by= pr_scaledcovar)',
   pr_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
   pr_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)',
+  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
   pet8 = '+ s(lags, k=lag/3, by= pet_scaledcovar)',
   pet_tot = '+ te(lags, tot_shading_m, k=lag/4, by= pet_scaledcovar)',
   pet_slope = '+ te(lags, slope_m, k=lag/3, by= pet_scaledcovar)',
@@ -377,11 +383,11 @@ if(attributes(seed_aic)$row.names[1] == "pet_tot") {
   plot_spline_coeff(best_model = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]],
                     lag = lag,
                     pet = T, shade = T,
-                    vital_rate = "abortion prob.",
+                    vital_rate = "seed production",
                     save_plot = T
   )
 } else {
-  warning("Different abortion probability model than expected with the lowest AIC - Plotting of spline skipped")
+  warning("Different seed production model than expected with the lowest AIC - Plotting of spline skipped")
 }
 
 
