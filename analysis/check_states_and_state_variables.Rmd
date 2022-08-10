@@ -507,7 +507,16 @@ seed_vial %>%
 
 ```
 
+# Correlation in possible covariates
 
+```{r}
+
+cor(read.csv(params$raw_data_location) %>%
+  select(soil_depth, rock, slope, herb_shading_t0, shrub_shading_t0), 
+  use = "complete.obs")
+
+
+```
 
 
 # Lifecycle diagram
