@@ -127,7 +127,7 @@ sdl_n <- length(state_independent_variables$sdl_surv@frame$survival_t1[which(sta
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- seq(0,8, length.out = 9)
+shading <- seq(0,6, length.out = 4)
 slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
