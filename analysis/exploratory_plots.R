@@ -85,5 +85,3 @@ print(Draco100_t0)
 
 dev.off()
 
-rm(list = ls())
-

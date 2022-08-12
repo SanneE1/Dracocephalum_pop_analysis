@@ -81,8 +81,32 @@ source("analysis/ipm_stoch_analysis.R")
 # File produced:
 # result/overview_lambda_env_levels.csv
 
+# Calculate extinction probability from 2022-2100
+# Takes a long time. with submit_extinct_prob.sh it can be run on the UFZ HPC
+source("analysis/extinction_prop.R")
+# File produced:
+# results/rds/extinction_probability.rds
+
+# Model possible management options -> planting adults or adding seeds
+source("analysis/management_strategies.R")
+# Files produced:
+# results/rds/management_projections_transplants.rds
+# results/rds/management_projections_seedaddition.rds
 
 
+
+# ----------------------------------------------------------------------
+# Process results
+# ----------------------------------------------------------------------
+
+# Plot population model results
+source("analysis/Plot_results.R")
+
+
+# Create document sumarizing results
+rmarkdown::render('results/Summarise results.Rmd', 
+                  output_format = "pdf_document",
+                  output_dir = "results/")
 
 
 
