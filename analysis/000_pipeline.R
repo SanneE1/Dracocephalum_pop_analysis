@@ -1,6 +1,7 @@
 ### Pipeline for the Dracocephalum population analysis
 
 library(tidyverse)
+library(RColorBrewer)
 library(lme4)
 library(patchwork)
 library(rethinking)
@@ -47,7 +48,7 @@ rmarkdown::render('analysis/check_states_and_state_variables.Rmd',
 # Create Arima model that can be used to simulate climate for IPMs
 source("analysis/Arima_climate_models.R")
 # File produced:
-# results/ARIMA_clim_mods.rds
+# results/rds/ARIMA_clim_mods.rds
 
 
 # ----------------------------------------------------------------------
@@ -56,13 +57,14 @@ source("analysis/Arima_climate_models.R")
 
 # Functional linear models for state dependent variables
 source("analysis/FLM_climate_models.R")
-# File produced:
-# results/VR_FLM.rds
+# Files produced:
+# results/rds/VR_FLM.rds
+# results/rds/VR_mod_infos.rds
 
 # State independent variables
 source("analysis/state_independent_variables.R")
 # File produced:
-# results/state_independent_VR.rds
+# results/rds/state_independent_VR.rds
 
 # ----------------------------------------------------------------------
 # Population model
@@ -71,7 +73,7 @@ source("analysis/state_independent_variables.R")
 # deterministic ipm (locality/year specific. no other covariates)
 source("analysis/ipm_det_analysis.R")
 # File produced:
-# result/deterministic_ipm.rds
+# result/rds/deterministic_ipm.rds
 
 # Long-term IPM with climate & environmental variables
 # takes a long time. With submit_stoch_ipm.sh it can be run on the UFZ HPC

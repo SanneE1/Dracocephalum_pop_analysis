@@ -101,6 +101,6 @@ SI_mods <- list(est_germination_rate = rethinking::extract.samples(germ_model, n
                 sdl_surv = sdl_surv,
                 sdl_size_d = sdl_size_d)
 
-saveRDS(SI_mods, file = "results/state_independent_VR.rds")
+saveRDS(SI_mods, file = "results/rds/state_independent_VR.rds")
 
 rm(list = ls())

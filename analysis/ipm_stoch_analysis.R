@@ -17,9 +17,9 @@ setwd(args[1])
 
 source("R/functions_ipmr.R")
 
-VR_FLM <- readRDS("results/VR_FLM.rds")
-state_independent_variables <- readRDS("results/state_independent_VR.rds")
-climate_models <- readRDS("results/ARIMA_clim_mods.rds")
+VR_FLM <- readRDS("results/rds/VR_FLM.rds")
+state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
+climate_models <- readRDS("results/rds/ARIMA_clim_mods.rds")
 
 lag = 24
 n_it = 10000

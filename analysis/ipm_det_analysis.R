@@ -1,7 +1,7 @@
 # Script to run deterministic, locality/year specific IPM
 
 data_for_modeling = "data/Dracocephalum_with_vital_rates.csv"
-state_independent_variables <- readRDS("results/state_independent_VR.rds")
+state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 
 demo_data <- read.csv(data_for_modeling) %>%
   mutate(population = factor(population)) %>%
@@ -368,6 +368,6 @@ ggsave(ind_lambda, filename = here::here("results", "individual_lambdas.png"),
 deterministic_ipm = list(det_ipm = det_ipm,
                          individual_lambdas = lam)
 
-saveRDS(deterministic_ipm, file = "results/deterministic_ipm.rds")
+saveRDS(deterministic_ipm, file = "results/rds/deterministic_ipm.rds")
 
 rm(list = ls())

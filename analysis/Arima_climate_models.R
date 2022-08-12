@@ -29,6 +29,6 @@ arima_l <- list(clim_hist_model = clim_l,
 
 
 saveRDS(arima_l,
-        file = "results/ARIMA_clim_mods.rds")
+        file = "results/rds/ARIMA_clim_mods.rds")
 
 rm(list = ls())

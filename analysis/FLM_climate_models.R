@@ -395,7 +395,23 @@ saveRDS(list(surv = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
              flower_p = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
              abort_p = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
              n_seeds = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]]),
-        file = "results/VR_FLM.rds")
+        file = "results/rds/VR_FLM.rds")
+
+saveRDS(
+  list(
+    drop1 = list(surv = surv_drop,
+                 growth = growth_drop,
+                 flowp = flowp_drop,
+                 abp = abp_drop,
+                 seeds = seed_drop),
+    aic = list(surv = surv_aic,
+               growth = growth_aic,
+               flowp = flowp_aic,
+               abp = abp_aic,
+               seeds = seed_aic)
+  ),
+  file = "results/rds/VR_mod_infos.rds"
+)
 
 
 rm(list = ls())
