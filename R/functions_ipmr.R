@@ -37,6 +37,7 @@ FLM_clim_predict <- function(model, lag_vec,
     population = "CR",
     tot_shading_t0 = 0,
     slope = 0,
+    soil_depth = 0,
     year_t0 = 2016,
     tot_shading_m = matrix(rep(shading, length(lag_vec)), nrow = 1),
     lags = matrix(lag_vec, nrow = 1),
@@ -60,7 +61,7 @@ proto_ipm <- function(params, env_params, locality,
     define_kernel(
       name      = "P_loc",
       family    = "CC",
-      formula   = s_loc * g * d_stems,
+      formula   = s_loc * g_loc * d_stems,
       
       s_loc         =  plogis(s_linear_loc),
       s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
@@ -72,8 +73,8 @@ proto_ipm <- function(params, env_params, locality,
                          pet_vec = pet,
                          shading = shading
         ), 
-      g         =  dnorm(stems_2, g_mu, grow_sd),
-      g_mu      =  g_int + g_stems * stems_1 + 
+      g_loc         =  dnorm(stems_2, g_mu_loc, grow_sd),
+      g_mu_loc      =  g_int + g_stems * stems_1 + g_site_loc +
         FLM_clim_predict(model = grow_mod, 
                          lag_vec = lags, 
                          temp_vec = temp, 
@@ -88,7 +89,7 @@ proto_ipm <- function(params, env_params, locality,
       par_set_indices = list(loc = c("CR", "HK", "KS", "RU")),
       
       evict_cor     = TRUE,
-      evict_fun     = truncated_distributions("norm", "g")
+      evict_fun     = truncated_distributions("norm", "g_loc")
     ) %>%
     define_kernel(
       name = "F_to_SDL_loc",
@@ -96,7 +97,8 @@ proto_ipm <- function(params, env_params, locality,
       formula = fp_loc * pabort_loc * n_seeds_loc * surv1_seed * germ * d_stems,
       
       fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_slope * slope +
+      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
+        fp_slope * slope +
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
@@ -104,7 +106,7 @@ proto_ipm <- function(params, env_params, locality,
                          pet_vec = pet,
                          shading = shading),
       pabort_loc     = plogis(ab_linear_loc),
-      ab_linear_loc   = ab_int + ab_stems * stems_1 +
+      ab_linear_loc   = ab_int + ab_stems * stems_1 + ab_site_loc +
         FLM_clim_predict(model = pabort_mod,
                          lag_vec = lags,
                          temp_vec = temp,
@@ -112,7 +114,7 @@ proto_ipm <- function(params, env_params, locality,
                          pet_vec = pet,
                          shading = shading),
       n_seeds_loc     = exp(n_seeds_linear_loc),
-      n_seeds_linear_loc = ns_int + ns_stems * stems_1 +
+      n_seeds_linear_loc = ns_int + ns_stems * stems_1 + ns_site_loc +
         FLM_clim_predict(model = nseed_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
@@ -136,7 +138,8 @@ proto_ipm <- function(params, env_params, locality,
       formula = fp_loc * pabort_loc * n_seeds_loc * surv1_seed * (1-germ) * d_stems,
       
       fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_slope * slope + 
+      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
+        fp_slope * slope + 
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
@@ -144,7 +147,7 @@ proto_ipm <- function(params, env_params, locality,
                          pet_vec = pet,
                          shading = shading),
       pabort_loc     = plogis(ab_linear_loc),
-      ab_linear_loc   = ab_int + ab_stems * stems_1 +
+      ab_linear_loc   = ab_int + ab_stems * stems_1 + ab_site_loc +
         FLM_clim_predict(model = pabort_mod,
                          lag_vec = lags,
                          temp_vec = temp,
@@ -152,7 +155,7 @@ proto_ipm <- function(params, env_params, locality,
                          pet_vec = pet,
                          shading = shading),
       n_seeds_loc     = exp(n_seeds_linear_loc),
-      n_seeds_linear_loc = ns_int + ns_stems * stems_1 +
+      n_seeds_linear_loc = ns_int + ns_stems * stems_1 + ns_site_loc +
         FLM_clim_predict(model = nseed_mod,
                          lag_vec = lags, 
                          temp_vec = temp, 
@@ -304,10 +307,8 @@ ipm_loop <- function(i, df_env, params,
   print(i)
   loc <- df_env$localities[i]
   
-  
   clim_mod <- climate_models[[grep(as.character(df_env$time[i]), 
                                    names(climate_models), value = T)]]
-  
   clim_mod <- clim_mod[grep(as.character(loc), names(clim_mod), value = T)]
   
   if(as.character(df_env$time[i]) == "future") {

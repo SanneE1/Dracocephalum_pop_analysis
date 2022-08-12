@@ -33,10 +33,9 @@ clim_ts <- fut_clim %>%
   })
 
 
-# future climate predictions run from 2006 - 2100. as we look back 2 years, 
-# and census month is halfway through the year, it means we can run the ipm for 95 years
+# Projections will be from 2022 to 2100
 
-n_it = 95
+n_it = 79
 
 
 ## -------------------------------------------------------------------------------------------
@@ -60,6 +59,10 @@ params <- list(
   grow_mod = VR_FLM$growth,
   g_int = coef(VR_FLM$growth)[1],
   g_stems = coef(VR_FLM$growth)[2],
+  g_site_CR = 0,
+  g_site_HK = coef(VR_FLM$growth)[3],
+  g_site_KS = coef(VR_FLM$growth)[4],
+  g_site_RU = coef(VR_FLM$growth)[5],
   grow_sd = sd(resid(VR_FLM$growth)),
   
   pflower_mod = VR_FLM$flower_p,

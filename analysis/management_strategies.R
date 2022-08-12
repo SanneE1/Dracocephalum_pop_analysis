@@ -59,6 +59,10 @@ params <- list(
   grow_mod = VR_FLM$growth,
   g_int = coef(VR_FLM$growth)[1],
   g_stems = coef(VR_FLM$growth)[2],
+  g_site_CR = 0,
+  g_site_HK = coef(VR_FLM$growth)[3],
+  g_site_KS = coef(VR_FLM$growth)[4],
+  g_site_RU = coef(VR_FLM$growth)[5],
   grow_sd = sd(resid(VR_FLM$growth)),
   
   pflower_mod = VR_FLM$flower_p,

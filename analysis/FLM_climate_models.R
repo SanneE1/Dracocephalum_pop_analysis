@@ -12,7 +12,7 @@ source("R/functions_GAM.R")
 ### Looks like for the GAM you need to use a variable name ("temp") and then "." and then add the numbers
 
 demo_data <- read.csv(data_for_modeling) %>% rowwise() %>%
-  mutate(population = factor(population),
+  mutate(population = population,
          tot_shading_tm2 = ifelse(any(!is.na(c(herb_shading_tm2, shrub_shading_tm2))), 
                                   sum(herb_shading_tm2, shrub_shading_tm2, na.rm = T),
                                   NA),
@@ -47,11 +47,9 @@ clim_data_t0 <- read.csv(CHELSA_data) %>%
 ### Merge the two dataframes and keep only entries for which we have full climate data available
 
 data_t1 <- left_join(demo_data, clim_data_t1) %>% 
-  filter(complete.cases(tas_scaled.0)) %>%
   mutate(year_t0 = factor(year_t0))
 
 data_t0 <- left_join(demo_data, clim_data_t0) %>% 
-  filter(complete.cases(tas_scaled.0)) %>%
   mutate(year_t0 = factor(year_t0))
 
 # Add shading matrices for te() functions below
@@ -98,19 +96,19 @@ smooth_forms0 <- list(
   null = "",
   tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
-  tas_tot = '+ te(lags, tot_shading_m, k=lag/4, by= tas_scaledcovar)',
+  tas_tot = '+ te(lags, tot_shading_m, k=lag/5, by= tas_scaledcovar)',
   tas_slope = '+ te(lags, slope_m, k=lag/3, by= tas_scaledcovar)',
   tas_rock = '+ te(lags, rock_m, k=lag/3, by= tas_scaledcovar)',
   tas_soil = '+ te(lags, soil_m, k=lag/3, by= tas_scaledcovar)',
   pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
   pr8 = '+ s(lags, k=lag/3, by= pr_scaledcovar)',
-  pr_tot = '+ te(lags, tot_shading_m, k=lag/4, by= pr_scaledcovar)',
+  pr_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pr_scaledcovar)',
   pr_slope = '+ te(lags, slope_m, k=lag/3, by= pr_scaledcovar)',
   pr_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
   pr_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)',
   pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
   pet8 = '+ s(lags, k=lag/3, by= pet_scaledcovar)',
-  pet_tot = '+ te(lags, tot_shading_m, k=lag/4, by= pet_scaledcovar)',
+  pet_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pet_scaledcovar)',
   pet_slope = '+ te(lags, slope_m, k=lag/3, by= pet_scaledcovar)',
   pet_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
   pet_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)'
@@ -134,7 +132,7 @@ surv_drop <- drop1(surv, test = "Chisq") %>%
   mutate(
     p_adj_BH = p.adjust(p_value,method="BH",n=96),
     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
+    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
   ) %>% as_tibble()
 
 base_surv <- surv_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
@@ -187,7 +185,7 @@ growth_drop <- drop1(growth, test = "Chisq") %>%
   mutate(
     p_adj_BH = p.adjust(p_value,method="BH",n=96),
     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
+    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
   ) %>% as_tibble()
 
 base_growth <- growth_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
@@ -243,7 +241,7 @@ flowp_drop <- drop1(flowp, test = "Chisq") %>%
   mutate(
     p_adj_BH = p.adjust(p_value,method="BH",n=96),
     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
+    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
   ) %>% as_tibble()
 
 base_flowp <- flowp_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
@@ -270,10 +268,10 @@ flowp_aic <- bbmle::AICtab(flowp_mods,
 summary(flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
 
-if(attributes(flowp_aic)$row.names[1] == "pr_tot") {
+if(attributes(flowp_aic)$row.names[1] == "pet_tot") {
   plot_spline_coeff(best_model = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
                     lag = lag,
-                    pr = T, shade = T,
+                    pet = T, shade = T,
                     vital_rate = "flowp",
                     save_plot = T
   )
@@ -299,7 +297,7 @@ abp_drop <- drop1(abp, test = "Chisq") %>%
   mutate(
     p_adj_BH = p.adjust(p_value,method="BH",n=96),
     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
+    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
   ) %>% as_tibble()
 
 base_abp <- abp_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0" ) %>%
@@ -325,10 +323,10 @@ abp_aic <- bbmle::AICtab(abp_mods,
 summary(abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]])   
 
 
-if(attributes(abp_aic)$row.names[1] == "pet_tot") {
+if(attributes(abp_aic)$row.names[1] == "pr_tot") {
   plot_spline_coeff(best_model = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
                     lag = lag,
-                    pet = T, shade = T,
+                    pr = T, shade = T,
                     vital_rate = "abortion prob.",
                     save_plot = T
   )
@@ -353,7 +351,7 @@ seed_drop <- drop1(seed, test = "Chisq") %>%
   mutate(
     p_adj_BH = p.adjust(p_value,method="BH",n=96),
     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
+    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
   ) %>% as_tibble()
 
 base_seed <- seed_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0" ) %>%
