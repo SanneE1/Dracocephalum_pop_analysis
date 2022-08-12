@@ -150,7 +150,9 @@ rep <- c(1:nrow(df_env))
 ## -------------------------------------------------------------------------------------------
 
 ### Set up parallel
-cl <- makeForkCluster(outfile = "")  
+cl <- makeCluster(detectCores() - 2 ) 
+# cl <- makeForkCluster(outfile = "")
+
 clusterExport(cl=cl, c("df_env", "ipm_ext_p", "proto_ipm", 
                        "params", "clim_ts", "pop_vec", "sdl_n", 
                        "U", "L", "n", "n_it", "lag",
@@ -160,17 +162,18 @@ clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 
 df <- parLapplyLB(cl,
                   as.list(rep),
-                  function(x) ipm_ext_p(i = x, df_env = df_env,
+                  function(x) tryCatch(ipm_ext_p(i = x, df_env = df_env,
                                                 params = params, 
                                                 clim_ts = clim_ts,
                                                 n_it = n_it, 
-                                                U = U, L = L, n = n)) %>% 
+                                                U = U, L = L, n = n), 
+                                       error = function(e) NULL)) %>% 
   bind_rows()
 
 stopCluster(cl)
 
 
-saveRDS(df, file = "results/extinction_probability.rds")
+saveRDS(df, file = "results/rds/extinction_probability.rds")
 
 
 
