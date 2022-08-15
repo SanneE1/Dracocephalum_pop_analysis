@@ -42,8 +42,8 @@ n_it = 79
 ## Other variables for IPM
 ## -------------------------------------------------------------------------------------------
 
-VR_FLM <- readRDS("results/VR_FLM.rds")
-state_independent_variables <- readRDS("results/state_independent_VR.rds")
+VR_FLM <- readRDS("results/rds/VR_FLM.rds")
+state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 lag = 24
 
 params <- list(
@@ -191,7 +191,8 @@ clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 df_trans <- parLapplyLB(cl,
                   as.list(c(1:nrow(df_env_trans))),
                   function(x) tryCatch(man_trans(i = x, df_env = df_env_trans,
-                                                 params = params, 
+                                                 params = params,
+                                                 pop_vec = pop_vec, sdl_n = sdl_n,
                                                  clim_ts = clim_ts,
                                                  n_it = n_it, 
                                                  U = U, L = L, n = n), 
@@ -201,9 +202,10 @@ df_trans <- parLapplyLB(cl,
 saveRDS(df_trans, file = "results/rds/managment_projections_transplants.rds")
 
 df_seedadd <- parLapplyLB(cl,
-                        as.list(c(1:nrow(df_env))),
+                        as.list(c(1:nrow(df_env_seed))),
                         function(x) tryCatch(man_seedadd(i = x, df_env = df_env_seed,
-                                                       params = params, 
+                                                       params = params,
+                                                       pop_vec = pop_vec, sdl_n = sdl_n,
                                                        clim_ts = clim_ts,
                                                        n_it = n_it, 
                                                        U = U, L = L, n = n), 
@@ -211,4 +213,6 @@ df_seedadd <- parLapplyLB(cl,
   bind_rows()
 
 saveRDS(df_seedadd, file = "results/rds/managment_projections_seedaddition.rds")
+
+stopCluster(cl)
 
