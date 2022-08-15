@@ -112,13 +112,29 @@ U <- max(VR_FLM$growth$model$ln_stems_t0, na.rm = T) * 1.1
 n = 100
 
 
+
 ## Starting population vector
+data <- read.csv("data/Dracocephalum_with_vital_rates.csv") %>%
+  filter(year_t0 == "2021")
+data <- split(data, data$population)
+pop_n <- list(CR = 45,
+              HK = 202,
+              KS = 25,
+              RU = 43
+)
 
-pop_vec <- table(cut(VR_FLM$surv$model$ln_stems_t0[which(VR_FLM$surv$model$year_t0 == "2008")], 
-    breaks=seq(L,U,length.out=(n+1)))) %>%
-  as.numeric(as.matrix(.)) * 5
+scalar1 <- function(x) {x / sum(x)}
 
-sdl_n <- length(state_independent_variables$sdl_surv@frame$survival_t1[which(state_independent_variables$sdl_surv@frame$year_t0 == "2008")])
+pop_vec <- lapply(data, function(x){
+  vec <- table(cut((x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0, 
+                   breaks=seq(L,U,length.out=(n+1))))
+  return(scalar1(vec))
+}
+) %>% purrr::map2(., pop_n, ~t(.x) * .y)
+
+
+sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
+
 
 ## -------------------------------------------------------------------------------------------
 ## Set up environmental values

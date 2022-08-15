@@ -276,8 +276,8 @@ proto_ipm <- function(params, env_params, locality,
 run_ipm <- function(params, env_params, locality, 
                     n_it = n_it, U, L, n){
   
-   proto_ipm(params, env_params, locality, 
-             n_it, U, L, n) %>%
+  proto_ipm(params, env_params, locality, 
+            n_it, U, L, n) %>%
     define_env_state(
       env_covs = sample_env(iteration = t, env_params = env_params),
       data_list = list(env_params = env_params,
@@ -317,7 +317,7 @@ ipm_loop <- function(i, df_env, params,
     clim_mod <- clim_mod[grep(txt, names(clim_mod), value = T)]
     
   }
-    
+  
   clim_sim <- lapply(clim_mod, function(x)
     simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
       ts(., start= c(2023,1), frequency = 12))
@@ -346,7 +346,8 @@ ipm_loop <- function(i, df_env, params,
 }
 
 ipm_ext_p <- function(i, df_env, params,
-                      clim_ts,
+                      clim_ts, clim_hist,
+                      pop_vec, sdl_n,
                       n_it, U = U, L = L, n = n) {
   
   
@@ -354,9 +355,21 @@ ipm_ext_p <- function(i, df_env, params,
   model <- df_env$model[i]
   locality <- df_env$localities[i]
   
-  txt <- paste(locality, model, scenario, sep = '.*')
-  clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
-    lapply(., function(x) x$value)
+  # Select pop_vectors
+  pop_vec <- pop_vec[[grep(toupper(locality), names(pop_vec), value = T)]] %>% as.vector()
+  sdl_n <- sdl_n[[grep(toupper(locality), names(sdl_n), value = T)]] %>% as.vector()
+  
+  if(model == "No change") {
+    
+    clim_mod <- hist_clim[grep(locality, names(hist_clim), value = T, ignore.case = T)]
+    
+  } else{
+    
+    txt <- paste(locality, model, scenario, sep = '.*')
+    clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
+      lapply(., function(x) x$value)
+    
+  }
   
   env_params <- append(
     clim_mod,
@@ -366,6 +379,7 @@ ipm_ext_p <- function(i, df_env, params,
     ))
   
   
+  ## IPM
   a <- proto_ipm(params = params, env_params = env_params, locality = toupper(locality),
                  n_it = n_it, U = U, L = L, n = n) %>%
     define_env_state(
@@ -409,14 +423,19 @@ ipm_ext_p <- function(i, df_env, params,
 
 
 man_trans <- function(i, df_env, params,
-                        clim_ts, n_it,
-                        U, L, n) {
-
+                      clim_ts, 
+                      pop_vec, sdl_n,
+                      n_it,
+                      U, L, n) {
+  
   scenario <- df_env$scenario[i]
   model <- df_env$model[i]
   locality <- df_env$localities[i]
   yrs_between_man <- df_env$yrs_between_man[i]
   
+  # Select pop_vectors
+  pop_vec <- pop_vec[[grep(toupper(locality), names(pop_vec), value = T)]] %>% as.vector()
+  sdl_n <- sdl_n[[grep(toupper(locality), names(sdl_n), value = T)]] %>% as.vector()
   
   txt <- paste(locality, model, scenario, sep = '.*')
   clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
@@ -430,66 +449,66 @@ man_trans <- function(i, df_env, params,
     ))
   
   
-pop_vec1 <- pop_vec
-sdl_n1 <- sdl_n
-sb1_n1 <- 2000
-sb2_n1 <- 2000
-
-pop_size <- c(sum(pop_vec))
-lambdas <- c()
-
-for(j in c(0:round(n_it/yrs_between_man, 0))) {
-
+  pop_vec1 <- pop_vec
+  sdl_n1 <- sdl_n
+  sb1_n1 <- 2000
+  sb2_n1 <- 2000
   
-  start_yr <- (2022 + (j * yrs_between_man))
+  pop_size <- c(sum(pop_vec))
+  lambdas <- c()
   
-  if(start_yr >= 2100) next
-  if(start_yr + yrs_between_man >= 2100) {
-    yrs_between_man = 2100 - start_yr
-  }
-  
-  
-  a <- proto_ipm(params = params, env_params = env_params, locality = toupper(locality),
-                 n_it = yrs_between_man, U = U, L = L, n = n) %>%
-    define_env_state(
-      env_covs = sample_env(iteration = t, env_params = env_params, 
-                            start_year = start_yr),
-      data_list = list(env_params = env_params,
-                       sample_env = sampling_env,
-                       start_yr = start_yr)
-    ) %>%
-    define_pop_state(
-      pop_vectors = list(
-        n_stems = pop_vec1,
-        n_sb1 = sb1_n1,
-        n_sb2 = sb2_n1,
-        n_sdl = sdl_n1
+  for(j in c(0:round(n_it/yrs_between_man, 0))) {
+    
+    
+    start_yr <- (2022 + (j * yrs_between_man))
+    
+    if(start_yr >= 2100) next
+    if(start_yr + yrs_between_man >= 2100) {
+      yrs_between_man = 2100 - start_yr
+    }
+    
+    
+    a <- proto_ipm(params = params, env_params = env_params, locality = toupper(locality),
+                   n_it = yrs_between_man, U = U, L = L, n = n) %>%
+      define_env_state(
+        env_covs = sample_env(iteration = t, env_params = env_params, 
+                              start_year = start_yr),
+        data_list = list(env_params = env_params,
+                         sample_env = sampling_env,
+                         start_yr = start_yr)
+      ) %>%
+      define_pop_state(
+        pop_vectors = list(
+          n_stems = pop_vec1,
+          n_sb1 = sb1_n1,
+          n_sb2 = sb2_n1,
+          n_sdl = sdl_n1
+        )
+      ) %>%
+      make_ipm(
+        iterate = TRUE,
+        iterations = yrs_between_man,
+        kernel_seq = rep(toupper(locality), yrs_between_man),
+        usr_funs = list(FLM_clim_predict = FLM_clim_predict),
+        return_sub_kernels = TRUE,
+        normalize_pop_size = FALSE
       )
-    ) %>%
-    make_ipm(
-      iterate = TRUE,
-      iterations = yrs_between_man,
-      kernel_seq = rep(toupper(locality), yrs_between_man),
-      usr_funs = list(FLM_clim_predict = FLM_clim_predict),
-      return_sub_kernels = TRUE,
-      normalize_pop_size = FALSE
-    )
-  
-  pop_size = c(pop_size, 
-               apply(a$pop_state$n_stems, 2, sum)[2:(yrs_between_man+1)])
-  lambdas = c(lambdas,
-              a$pop_state$lambda)
-  
-  
-  pop_vec1 <- a$pop_state$n_stems[,(yrs_between_man+1)]
-  sdl_n1 <- a$pop_state$n_sdl[,(yrs_between_man+1)]
-  sb1_n1 <- a$pop_state$n_sb1[,(yrs_between_man+1)]
-  sb2_n1 <- a$pop_state$n_sb2[,(yrs_between_man+1)]
-  
-  pop_vec1[19] <- pop_vec1[19] + (df_env$effort[i]*0.7)   ## 19 is meshpoint for individuals sized ~ log(2)
-  pop_vec1[30] <- pop_vec1[30] + (df_env$effort[i]*0.3)   ## 30 is meshpoint for individuals sized ~ log(3)
-  
-}
+    
+    pop_size = c(pop_size, 
+                 apply(a$pop_state$n_stems, 2, sum)[2:(yrs_between_man+1)])
+    lambdas = c(lambdas,
+                a$pop_state$lambda)
+    
+    
+    pop_vec1 <- a$pop_state$n_stems[,(yrs_between_man+1)]
+    sdl_n1 <- a$pop_state$n_sdl[,(yrs_between_man+1)]
+    sb1_n1 <- a$pop_state$n_sb1[,(yrs_between_man+1)]
+    sb2_n1 <- a$pop_state$n_sb2[,(yrs_between_man+1)]
+    
+    pop_vec1[19] <- pop_vec1[19] + (df_env$effort[i]*0.7)   ## 19 is meshpoint for individuals sized ~ log(2)
+    pop_vec1[30] <- pop_vec1[30] + (df_env$effort[i]*0.3)   ## 30 is meshpoint for individuals sized ~ log(3)
+    
+  }
   
   b <- data.frame(
     locality = locality,
@@ -512,8 +531,9 @@ for(j in c(0:round(n_it/yrs_between_man, 0))) {
 }
 
 man_seedadd <- function(i, df_env, params,
-                      clim_ts, n_it,
-                      U, L, n) {
+                        pop_vec, sdl_n,
+                        clim_ts, n_it,
+                        U, L, n) {
   
   scenario <- df_env$scenario[i]
   model <- df_env$model[i]
@@ -532,6 +552,10 @@ man_seedadd <- function(i, df_env, params,
          slope = df_env$slope[i]
     ))
   
+  
+  # Select pop_vectors
+  pop_vec <- pop_vec[[grep(toupper(locality), names(pop_vec), value = T)]] %>% as.vector()
+  sdl_n <- sdl_n[[grep(toupper(locality), names(sdl_n), value = T)]] %>% as.vector()
   
   pop_vec1 <- pop_vec
   sdl_n1 <- sdl_n
