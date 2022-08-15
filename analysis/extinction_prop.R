@@ -16,6 +16,10 @@ setwd(args[1])
 
 source("R/functions_ipmr.R")
 
+# Projections will be from 2022 to 2100
+n_it = 79
+lag = 24
+
 ## -------------------------------------------------------------------------------------------
 ## Format CHELSA's time series for IPM
 ## -------------------------------------------------------------------------------------------
@@ -32,18 +36,17 @@ clim_ts <- fut_clim %>%
     x %>% mutate(value = ts(value, frequency = 12 , start = c(2006,1)))
   })
 
-
-# Projections will be from 2022 to 2100
-
-n_it = 79
-
+hist_clim <- readRDS("results/rds/ARIMA_clim_mods.rds")$clim_hist_model %>%
+  lapply(., function(x)
+    simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
+      ts(., start= c(2023,1), frequency = 12))
 
 ## -------------------------------------------------------------------------------------------
 ## Other variables for IPM
 ## -------------------------------------------------------------------------------------------
 
-VR_FLM <- readRDS("results/VR_FLM.rds")
-state_independent_variables <- readRDS("results/state_independent_VR.rds")
+VR_FLM <- readRDS("results/rds/VR_FLM.rds")
+state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 lag = 24
 
 params <- list(
@@ -151,14 +154,21 @@ scenario <- c("rcp45", "rcp85")
 
 
 df_env <- expand.grid(localities = localities, 
-                          shading = shading, 
-                          slope = slope,
-                          scenario = scenario,
-                          model = model
+                      shading = shading, 
+                      slope = slope,
+                      scenario = scenario,
+                      model = model
 ) %>% 
+  rbind(.,
+        expand.grid(
+          localities = localities, 
+          shading = shading, 
+          slope = slope,
+          scenario = NA,
+          model = "No change"
+        )) %>% 
   mutate(localities = as.character(localities))
 
-rep <- c(1:nrow(df_env))
 
 
 ## -------------------------------------------------------------------------------------------
@@ -170,19 +180,23 @@ cl <- makeCluster(detectCores() - 2 )
 # cl <- makeForkCluster(outfile = "")
 
 clusterExport(cl=cl, c("df_env", "ipm_ext_p", "proto_ipm", 
-                       "params", "clim_ts", "pop_vec", "sdl_n", 
+                       "params", "clim_ts", "hist_clim",
+                       "pop_vec", "sdl_n",
                        "U", "L", "n", "n_it", "lag",
                        "sampling_env", "FLM_clim_predict"))
 
 clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 
 df <- parLapplyLB(cl,
-                  as.list(rep),
+                  as.list(c(1:nrow(df_env))),
                   function(x) tryCatch(ipm_ext_p(i = x, df_env = df_env,
-                                                params = params, 
-                                                clim_ts = clim_ts,
-                                                n_it = n_it, 
-                                                U = U, L = L, n = n), 
+                                                 params = params, 
+                                                 clim_ts = clim_ts,
+                                                 clim_hist = hist_clim,
+                                                 pop_vec = pop_vec,
+                                                 sdl_n = sdl_n,
+                                                 n_it = n_it, 
+                                                 U = U, L = L, n = n), 
                                        error = function(e) NULL)) %>% 
   bind_rows()
 
