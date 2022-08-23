@@ -210,11 +210,11 @@ growth_aic <- bbmle::AICtab(growth_mods,
 
 summary(growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
-if(attributes(growth_aic)$row.names[1] == "pet_tot") {
+if(attributes(growth_aic)$row.names[1] == "pr_tot") {
   ## Taking the model with the lowest AIC that doesn't use PET  
   plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
                     lag = lag,
-                    pet = T, shade = T,
+                    pr = T, shade = T,
                     vital_rate = "growth",
                     save_plot = T
   )
@@ -377,10 +377,10 @@ seed_aic <- bbmle::AICtab(seed_mods,
 summary(seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]])   
 
 
-if(attributes(seed_aic)$row.names[1] == "pet_tot") {
+if(attributes(seed_aic)$row.names[1] == "pr_tot") {
   plot_spline_coeff(best_model = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]],
                     lag = lag,
-                    pet = T, shade = T,
+                    pr = T, shade = T,
                     vital_rate = "seed production",
                     save_plot = T
   )
