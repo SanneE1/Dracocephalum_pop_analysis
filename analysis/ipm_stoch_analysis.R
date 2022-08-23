@@ -3,9 +3,8 @@
 
 getwd()
 
-library(tidyverse)
+library(dplyr)
 library(lme4)
-library(patchwork)
 library(ipmr)
 library(mgcv)
 library(parallel)
@@ -13,7 +12,7 @@ library(forecast)
 
 args = commandArgs(trailingOnly = T)
 
-setwd(args[1])
+setwd(args[2])
 
 source("R/functions_ipmr.R")
 
@@ -23,6 +22,7 @@ climate_models <- readRDS("results/rds/ARIMA_clim_mods.rds")
 
 lag = 24
 n_it = 10000
+
 # param/model list 
 params <- list(
   surv_mod = VR_FLM$surv,
@@ -123,28 +123,39 @@ df_env <- rbind(df_env_hist, df_env_fut) %>%
 
 rep <- rep(c(1:nrow(df_env)), each = 10)
 
+# ### Set up parallel
+# cl <- makeForkCluster(outfile = "")  
+# clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm", 
+#                        "params", "climate_models", 
+#                        "U", "L", "n", "n_it", "lag",
+#                        "sampling_env", "FLM_clim_predict"))
+# 
+# clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
+# 
+# df <- parLapplyLB(cl,
+#                   as.list(rep),
+#                   function(x) tryCatch(ipm_loop(i = x, df_env = df_env,
+#                                                 params = params, 
+#                                                 climate_models = climate_models,
+#                                                 n_it = n_it, 
+#                                                 U = U, L = L, n = n),
+#                                        error = function(e) NULL)) %>% 
+#   bind_rows()
+# 
+# stopCluster(cl)
+# 
+# write.csv(df, file = "results/overview_lambda_env_levels.csv", 
+#           row.names = F)
 
-### Set up parallel
-cl <- makeForkCluster(outfile = "")  
-clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm", 
-                       "params", "climate_models", 
-                       "U", "L", "n", "n_it", "lag",
-                       "sampling_env", "FLM_clim_predict"))
 
-clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
+### Run as array job
+taskID <- as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID"))
 
-df <- parLapplyLB(cl,
-                  as.list(rep),
-                  function(x) tryCatch(ipm_loop(i = x, df_env = df_env,
-                                                params = params, 
-                                                climate_models = climate_models,
-                                                n_it = n_it, 
-                                                U = U, L = L, n = n),
-                                       error = function(e) NULL)) %>% 
-  bind_rows()
+df <- ipm_loop(i = rep[taskID], df_env = df_env,
+         params = params,
+         climate_models = climate_models,
+         n_it = n_it,
+         U = U, L = L, n = n) %>%
+  mutate(id = taskID)
 
-stopCluster(cl)
-
-write.csv(df, file = "results/overview_lambda_env_levels.csv", 
-          row.names = F)
-
+write.csv(df, file = file.path(args[2], paste0("ipm_stoch_", taskID, ".csv")), row.names = F)
