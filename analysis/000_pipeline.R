@@ -81,7 +81,7 @@ source("analysis/ipm_stoch_analysis.R")
 # File produced:
 # result/overview_lambda_env_levels.csv
 
-# Calculate extinction probability from 2022-2100
+# Short-term IBM Calculate extinction probability from 2022-2100
 # Takes a long time. with submit_extinct_prob.sh it can be run on the UFZ HPC
 source("analysis/extinction_prop.R")
 # File produced:
