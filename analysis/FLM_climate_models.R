@@ -72,6 +72,10 @@ data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth']
 
 smooth_forms <- list(
   null = "",
+  tot = "+ tot_shading_t0",
+  slope = "+ slope",
+  rock = "+ rock",
+  soil = "+ soil_depth",
   tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/3, by= tas_scaledcovar)',
@@ -94,6 +98,10 @@ smooth_forms <- list(
 
 smooth_forms0 <- list(
   null = "",
+  tot = "+ tot_shading_t0",
+  slope = "+ slope",
+  rock = "+ rock",
+  soil = "+ soil_depth",
   tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/5, by= tas_scaledcovar)',
@@ -120,24 +128,7 @@ smooth_forms0 <- list(
 
 
 # Basemodel
-surv <- glmer(survival_t1 ~ ln_stems_t0 + population + soil_depth + rock + slope + 
-                tot_shading_t0 + (1|year_t0),
-              data = na.omit(data_t1[c("survival_t1", "ln_stems_t0", "year_t0", "population", 
-                                       "soil_depth", "rock", "slope", 
-                                       "tot_shading_t0")]), family = "binomial")
-
-surv_drop <- drop1(surv, test = "Chisq") %>% 
-  rownames_to_column("dropped_covariate") %>%
-  rename(p_value = `Pr(Chi)`) %>%
-  mutate(
-    p_adj_BH = p.adjust(p_value,method="BH",n=96),
-    p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
-  ) %>% as_tibble()
-
-base_surv <- surv_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
-  pull(dropped_covariate) %>% paste(., collapse = "+") %>%
-  paste0("survival_t1 ~", ., '+ s(year_t0, bs="re")')
+base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
 
 #FLM models
 
@@ -156,42 +147,23 @@ surv_aic <- bbmle::AICtab(surv_mods,
 
 summary(surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
-if(attributes(surv_aic)$row.names[1] == "pet_tot") {
-  plot_spline_coeff(best_model = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
-                    lag = lag,
-                    pet = T, shade = T,
-                    vital_rate = "surv",
-                    save_plot = T
-  )
-} else {
-  warning("Different survival model than expected with the lowest AIC - Plotting of spline skipped")
-}
+# if(attributes(surv_aic)$row.names[1] == "pet_tot") {
+#   plot_spline_coeff(best_model = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
+#                     lag = lag,
+#                     pet = T, shade = T,
+#                     vital_rate = "surv",
+#                     save_plot = T
+#   )
+# } else {
+#   warning("Different survival model than expected with the lowest AIC - Plotting of spline skipped")
+# }
 
 ## -------------------------------------------------------
 ## Growth
 ## -------------------------------------------------------
 
 # Basemodel
-growth <- lmer(ln_stems_t1 ~ ln_stems_t0 + population + soil_depth + rock + slope + 
-                 tot_shading_t0 + (1|year_t0),
-               data = na.omit(data_t1[c("ln_stems_t1", "ln_stems_t0", "year_t0", "population", 
-                                        "soil_depth", "rock", "slope", 
-                                        "tot_shading_t0")]) %>% filter(is.finite(ln_stems_t0) & is.finite(ln_stems_t1))
-)
-
-growth_drop <- drop1(growth, test = "Chisq") %>% 
-  rownames_to_column("dropped_covariate") %>%
-  rename(p_value = `Pr(Chi)`) %>%
-  mutate(
-    p_adj_BH = p.adjust(p_value,method="BH",n=96),
-    p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
-  ) %>% as_tibble()
-
-base_growth <- growth_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
-  pull(dropped_covariate) %>% paste(., collapse = "+") %>%
-  paste0("ln_stems_t1 ~", ., '+ s(year_t0, bs="re")')
-
+base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
 
 #FLM models
 
@@ -210,17 +182,17 @@ growth_aic <- bbmle::AICtab(growth_mods,
 
 summary(growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
-if(attributes(growth_aic)$row.names[1] == "pr_tot") {
-  ## Taking the model with the lowest AIC that doesn't use PET  
-  plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
-                    lag = lag,
-                    pr = T, shade = T,
-                    vital_rate = "growth",
-                    save_plot = T
-  )
-} else {
-  warning("Different growth model than expected with the lowest AIC - Plotting of spline skipped")
-}
+# if(attributes(growth_aic)$row.names[1] == "pr_tot") {
+#   ## Taking the model with the lowest AIC that doesn't use PET  
+  # plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
+  #                   lag = lag,
+  #                   pr = T, shade = T,
+  #                   vital_rate = "growth",
+  #                   save_plot = F
+  # )
+# } else {
+#   warning("Different growth model than expected with the lowest AIC - Plotting of spline skipped")
+# }
 
 
 ## -------------------------------------------------------
@@ -228,25 +200,7 @@ if(attributes(growth_aic)$row.names[1] == "pr_tot") {
 ## -------------------------------------------------------
 
 # Basemodel
-flowp <- glmer(flower_p_t0 ~ ln_stems_t0 + population + soil_depth + rock + slope + 
-                 tot_shading_t0 + (1|year_t0),
-               data = na.omit(data_t0[c("flower_p_t0", "ln_stems_t0", "year_t0", "population", 
-                                        "soil_depth", "rock", "slope", 
-                                        "tot_shading_t0")]), 
-               family = "binomial")
-
-flowp_drop <- drop1(flowp, test = "Chisq") %>% 
-  rownames_to_column("dropped_covariate") %>%
-  rename(p_value = `Pr(Chi)`) %>%
-  mutate(
-    p_adj_BH = p.adjust(p_value,method="BH",n=96),
-    p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
-  ) %>% as_tibble()
-
-base_flowp <- flowp_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0") %>%
-  pull(dropped_covariate) %>% paste(., collapse = "+") %>%
-  paste0("flower_p_t0 ~", ., '+ s(year_t0, bs="re")')
+base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
 
 #FLM models
 
@@ -268,41 +222,23 @@ flowp_aic <- bbmle::AICtab(flowp_mods,
 summary(flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
 
-if(attributes(flowp_aic)$row.names[1] == "pet_tot") {
-  plot_spline_coeff(best_model = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
-                    lag = lag,
-                    pet = T, shade = T,
-                    vital_rate = "flowp",
-                    save_plot = T
-  )
-} else {
-  warning("Different flowp model than expected with the lowest AIC - Plotting of spline skipped")
-}
+# if(attributes(flowp_aic)$row.names[1] == "pet_tot") {
+#   plot_spline_coeff(best_model = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
+#                     lag = lag,
+#                     pet = T, shade = T,
+#                     vital_rate = "flowp",
+#                     save_plot = T
+#   )
+# } else {
+#   warning("Different flowp model than expected with the lowest AIC - Plotting of spline skipped")
+# }
 
 ## -------------------------------------------------------
 ## Abortion probability
 ## -------------------------------------------------------
 
 # Basemodel
-abp <- glmer(seed_p_t0 ~ ln_stems_t0 + population + soil_depth + rock + slope + 
-               tot_shading_t0 + (1|year_t0),
-             data = na.omit(data_t0[c("seed_p_t0", "ln_stems_t0", "year_t0", "population", 
-                                      "soil_depth", "rock", "slope", 
-                                      "tot_shading_t0")]), 
-             family = "binomial")
-
-abp_drop <- drop1(abp, test = "Chisq") %>% 
-  rownames_to_column("dropped_covariate") %>%
-  rename(p_value = `Pr(Chi)`) %>%
-  mutate(
-    p_adj_BH = p.adjust(p_value,method="BH",n=96),
-    p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
-  ) %>% as_tibble()
-
-base_abp <- abp_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0" ) %>%
-  pull(dropped_covariate) %>% paste(., collapse = "+") %>%
-  paste0("seed_p_t0 ~", ., '+ s(year_t0, bs="re")')
+base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
 
 #FLM models
 
@@ -323,40 +259,23 @@ abp_aic <- bbmle::AICtab(abp_mods,
 summary(abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]])   
 
 
-if(attributes(abp_aic)$row.names[1] == "pr_tot") {
-  plot_spline_coeff(best_model = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
-                    lag = lag,
-                    pr = T, shade = T,
-                    vital_rate = "abortion prob.",
-                    save_plot = T
-  )
-} else {
-  warning("Different abortion probability model than expected with the lowest AIC - Plotting of spline skipped")
-}
+# if(attributes(abp_aic)$row.names[1] == "pr_tot") {
+#   plot_spline_coeff(best_model = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
+#                     lag = lag,
+#                     pr = T, shade = T,
+#                     vital_rate = "abortion prob.",
+#                     save_plot = T
+#   )
+# } else {
+#   warning("Different abortion probability model than expected with the lowest AIC - Plotting of spline skipped")
+# }
 
 ## -------------------------------------------------------
 ## Seed numbers
 ## -------------------------------------------------------
 
 # Basemodel
-seed <- glmer(est_seed_n_t0 ~ ln_stems_t0 + population + soil_depth + rock + slope + 
-                tot_shading_t0 + (1|year_t0),
-              data = data_t0 %>%
-                filter(flower_p_t0 == 1 & seed_p_t0 == 1), 
-              family = Gamma(link = "log"))
-
-seed_drop <- drop1(seed, test = "Chisq") %>% 
-  rownames_to_column("dropped_covariate") %>%
-  rename(p_value = `Pr(Chi)`) %>%
-  mutate(
-    p_adj_BH = p.adjust(p_value,method="BH",n=96),
-    p_adj_holm = p.adjust(p_value,method="holm",n=96),
-    include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.05, "yes", "no")
-  ) %>% as_tibble()
-
-base_seed <- seed_drop %>% filter(include == "yes" | dropped_covariate == "ln_stems_t0" ) %>%
-  pull(dropped_covariate) %>% paste(., collapse = "+") %>%
-  paste0("est_seed_n_t0 ~", ., '+ s(year_t0, bs="re")')
+base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
 
 #FLM models
 
@@ -377,16 +296,16 @@ seed_aic <- bbmle::AICtab(seed_mods,
 summary(seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]])   
 
 
-if(attributes(seed_aic)$row.names[1] == "pr_tot") {
-  plot_spline_coeff(best_model = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]],
-                    lag = lag,
-                    pr = T, shade = T,
-                    vital_rate = "seed production",
-                    save_plot = T
-  )
-} else {
-  warning("Different seed production model than expected with the lowest AIC - Plotting of spline skipped")
-}
+# if(attributes(seed_aic)$row.names[1] == "pr_tot") {
+#   plot_spline_coeff(best_model = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]],
+#                     lag = lag,
+#                     pet = T, shade = T,
+#                     vital_rate = "seed production",
+#                     save_plot = T
+#   )
+# } else {
+#   warning("Different seed production model than expected with the lowest AIC - Plotting of spline skipped")
+# }
 
 
 
@@ -399,18 +318,13 @@ saveRDS(list(surv = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
 
 saveRDS(
   list(
-    drop1 = list(surv = surv_drop,
-                 growth = growth_drop,
-                 flowp = flowp_drop,
-                 abp = abp_drop,
-                 seeds = seed_drop),
-    aic = list(surv = surv_aic,
+    surv = surv_aic,
                growth = growth_aic,
                flowp = flowp_aic,
                abp = abp_aic,
-               seeds = seed_aic)
+               seeds = seed_aic
   ),
-  file = "results/rds/VR_mod_infos.rds"
+  file = "results/rds/VR_mod_AIC.rds"
 )
 
 
