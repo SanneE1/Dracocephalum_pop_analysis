@@ -2,7 +2,7 @@
 # As I haven't been able to figure out how to extract from a .nc ts format without fully 
 # downloading the files first, download the .nc files from this link first 
 # (https://envicloud.wsl.ch/#/?prefix=chelsa%2Fchelsa_V1%2Fchelsa_cmip5_ts)
-# then change the location in L18 to your local folder
+# then change the location in L22 to your local folder
 
 # module load foss/2019b R/4.0.0-2
 

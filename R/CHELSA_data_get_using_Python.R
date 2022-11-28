@@ -11,7 +11,8 @@ library(tidyverse)
 # Root directory
 root_dir    <- 'C:/Users/se44heqo/Documents/CHELSA/'
 
-# file with coordinates. Text because I don't know how to read CSV in Anaconda powershell prompt                    
+# file with coordinates. Text because I don't know how to read CSV in Anaconda powershell prompt
+## file with two columns ("Longitude", "Latitude")
 coord_file  <- 'coordinates.txt'
 # path to file
 read_cmd    <- paste0('cat ', root_dir, coord_file)
@@ -75,6 +76,7 @@ df <- lapply(as.list(files),
   dplyr::relocate(any_of(c("Name", "locality", "Longitude", "Latitude", "Altitude"))) %>%
   rowwise() %>%
   mutate(pet_c = as.numeric(SPEI::hargreaves(Tmin = tasmin, Tmax = tasmax, lat = Latitude, Pre = pr, na.rm = T))) %>%
+  ## Include filter to the 30-year period
   group_by(locality, month) %>%
   mutate(
     cmi_scaled = scale(cmi),
