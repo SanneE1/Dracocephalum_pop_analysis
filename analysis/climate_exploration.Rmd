@@ -41,17 +41,17 @@ ggplot(clim) +
   facet_wrap(vars(year), ncol = 4) +
   ggtitle("Potential evapotranspiration across years")
 
-ggplot(clim) +
-  geom_point(aes(x = month, y = cmi, shape = locality), colour = "green") +
-  geom_line(aes(x = month, y = cmi, linetype = locality), colour = "green") +
-  facet_wrap(vars(year), ncol = 4) + 
-  ggtitle("Climate moisture index across years")
+# ggplot(clim) +
+#   geom_point(aes(x = month, y = cmi, shape = locality), colour = "green") +
+#   geom_line(aes(x = month, y = cmi, linetype = locality), colour = "green") +
+#   facet_wrap(vars(year), ncol = 4) + 
+#   ggtitle("Climate moisture index across years")
 
-ggplot(clim) +
-  geom_point(aes(x = month, y = vpd, shape = locality), colour = "red") +
-  geom_line(aes(x = month, y = vpd, linetype = locality), colour = "red") +
-  facet_wrap(vars(year), ncol = 4) + 
-  ggtitle("Vapor pressure deficit across years")
+# ggplot(clim) +
+#   geom_point(aes(x = month, y = vpd, shape = locality), colour = "red") +
+#   geom_line(aes(x = month, y = vpd, linetype = locality), colour = "red") +
+#   facet_wrap(vars(year), ncol = 4) + 
+#   ggtitle("Vapor pressure deficit across years")
 
 
 
@@ -60,12 +60,12 @@ ggplot(clim) +
   geom_line(aes(x = month, y = tas_scaled, linetype = locality), colour = "orange") +
   geom_point(aes(x = month, y = pr_scaled, shape = locality), colour = "blue") +
   geom_line(aes(x = month, y = pr_scaled, linetype = locality), colour = "blue") +
-  geom_point(aes(x = month, y = cmi_scaled, shape = locality), colour = "green") +
-  geom_line(aes(x = month, y = cmi_scaled, linetype = locality), colour = "green") +
+  # geom_point(aes(x = month, y = cmi_scaled, shape = locality), colour = "green") +
+  # geom_line(aes(x = month, y = cmi_scaled, linetype = locality), colour = "green") +
   geom_point(aes(x = month, y = pet_scaled, shape = locality), colour = "purple") +
   geom_line(aes(x = month, y = pet_scaled, linetype = locality), colour = "purple") +
-  geom_point(aes(x = month, y = vpd_scaled, shape = locality), colour = "red") +
-  geom_line(aes(x = month, y = vpd_scaled, linetype = locality), colour = "red") +
+  # geom_point(aes(x = month, y = vpd_scaled, shape = locality), colour = "red") +
+  # geom_line(aes(x = month, y = vpd_scaled, linetype = locality), colour = "red") +
   facet_wrap(vars(year), ncol = 4) +
   ggtitle("Scaled temperatures, precipitation, climate moisture index, pot. evapotr. and vapor pressure deficit across years (Scaled per month)", 
           subtitle = "Orange = tas, blue = precipitation, green = climate moisture index, 

@@ -87,7 +87,7 @@ With the distance between the climate stations and localities it doesn't really 
 
 
 ```{r}
-chelsa <- read.csv(params$chelsa_data)
+chelsa <- read.csv(here::here(params$chelsa_data))
 
 print("precipitation")
 chelsa %>% 
@@ -112,14 +112,14 @@ chelsa %>%
   filter(complete.cases(.)) %>%
   cor(.)
 
-print("climate moisture index")
-chelsa %>% 
-  dplyr::select(Name, month, year, cmi) %>%
-  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
-  pivot_wider(names_from = Name, values_from = cmi) %>% 
-  dplyr::select(-c(year, month)) %>%
-  filter(complete.cases(.)) %>%
-  cor(.)
+# print("climate moisture index")
+# chelsa %>% 
+#   dplyr::select(Name, month, year, cmi) %>%
+#   filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+#   pivot_wider(names_from = Name, values_from = cmi) %>% 
+#   dplyr::select(-c(year, month)) %>%
+#   filter(complete.cases(.)) %>%
+#   cor(.)
 
 print("Potential evapotranspiration")
 chelsa %>% 
@@ -130,14 +130,14 @@ chelsa %>%
   filter(complete.cases(.)) %>%
   cor(.)
 
-print("vapor pressure deficit")
-chelsa %>% 
-  dplyr::select(Name, month, year, vpd) %>%
-  filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
-  pivot_wider(names_from = Name, values_from = vpd) %>% 
-  dplyr::select(-c(year, month)) %>%
-  filter(complete.cases(.)) %>%
-  cor(.)
+# print("vapor pressure deficit")
+# chelsa %>% 
+#   dplyr::select(Name, month, year, vpd) %>%
+#   filter(Name %in% c("Haknovec", "Císarská rokle", "Kodská stena", "Radotánské údolí")) %>%
+#   pivot_wider(names_from = Name, values_from = vpd) %>% 
+#   dplyr::select(-c(year, month)) %>%
+#   filter(complete.cases(.)) %>%
+#   cor(.)
 
 
 ```
