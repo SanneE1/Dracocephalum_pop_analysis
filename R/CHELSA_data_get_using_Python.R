@@ -9,7 +9,7 @@ library(tidyverse)
 ##------------------------------------------------------
 
 # Root directory
-root_dir    <- 'C:/Users/se44heqo/Documents/CHELSA/'
+root_dir    <- 'C:/Users/se44heqo/Documents/PhD/10 Side projects/STSM Dracocephalum/Population_analysis/data/CHELSA/'
 
 # file with coordinates. Text because I don't know how to read CSV in Anaconda powershell prompt
 ## file with two columns ("Longitude", "Latitude")
@@ -48,7 +48,8 @@ write.table( store,
 
 ## Copy past the resulting file into the Anaconda Prompt. Once the downloading is complete continue on with the script
 ## I know this really isn't good practice and not really reproducible, but I haven't figured out how to do this from here
-download_location = 'C:/Users/se44heqo/Documents/CHELSA/results/'
+
+download_location = file.path(root_dir, "results")
 
 coord <- read.table(here::here(root_dir, coord_file), header = F, sep = " ",
                     col.names = c("Longitude", "Latitude"))
@@ -79,11 +80,11 @@ df <- lapply(as.list(files),
   ## Include filter to the 30-year period
   group_by(locality, month) %>%
   mutate(
-    cmi_scaled = scale(cmi),
+    # cmi_scaled = scale(cmi),
     pet_scaled = scale(pet_c),
     pr_scaled = scale(pr),
     tas_scaled = scale(tas),
-    vpd_scaled = scale(vpd)
+    # vpd_scaled = scale(vpd)
   ) %>% ungroup() 
 
 
