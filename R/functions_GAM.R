@@ -75,32 +75,31 @@ climate_wider_for_gam <- function(clim_data, demo_data, variables, response_t1 =
 plot_spline_coeff <- function(best_model, 
                               lag = lag,
                               tas = F, pr = F, pet = F,
-                              shade = F, slope = F, rock = F, soil = F,
-                              vital_rate, save_plot = T
+                              shade = F, slope = F, rockiness = F, soil = F,
+                              vital_rate, save_plot = F
 ) {
   
   lags= c(0:lag); ln_stems_t0=1; population = factor("CR")
-  year_t0 = 2015
-  
+
   tas_scaledcovar= 0; pr_scaledcovar = 0; pet_scaledcovar = 0
   tot_shading_m = 0; slope_m = 0; rock_m = 0; soil_m= 0
   interact = ""; covar=""; legendtitle = ""
   
   if(tas) {
     tas_scaledcovar = 1
-    yaxis_title = "temperature anomaly coefficient"
+    yaxis_title = "temperature"
     covar = "tas"}
   if(pr) {
     pr_scaledcovar = 1
-    yaxis_title = "precipitation anomaly coefficient"
+    yaxis_title = "precipitation"
     covar = "pr"}
   if(pet) {
     pet_scaledcovar = 1
-    yaxis_title = "potential evapotranspiration anomaly coefficient"
+    yaxis_title = "PET"
     covar = "pet"}
   
   if(shade) {
-    tot_shading_m = c(0,3,6,9)
+    tot_shading_m = c(0,2,4,6)
     legendtitle <- "shading level"
     interact = "shading_m"
   }
@@ -109,7 +108,7 @@ plot_spline_coeff <- function(best_model,
     legendtitle <- "slope (degree)"
     interact = "slope_m"
   }
-  if(rock) {
+  if(rockiness) {
     rock_m = c(0, 33, 66, 99)
     legendtitle <- "rock cover (%)"
     interact = "rock_m"
@@ -123,7 +122,7 @@ plot_spline_coeff <- function(best_model,
   getBeta.data <- expand.grid(lags= c(0:lag), 
                               ln_stems_t0=1,
                               population = factor("CR"),
-                              year_t0 = 2015,
+                              year_t0 = 2018,
                               soil_depth = 1,
                               rock = 20,
                               slope = 20,
@@ -148,9 +147,9 @@ plot_spline_coeff <- function(best_model,
     scale_x_continuous(breaks = seq(from = -1 * (lag), to = 0, by = 6),
                        limits = c((lag * -1), 0),
                        expand = c(0,0)) +
-    scale_fill_discrete(name = legendtitle) +
-    scale_colour_discrete(name = legendtitle) +
-    xlab("months") + ylab(yaxis_title) +
+    viridis::scale_fill_viridis(name = legendtitle, option = "D", discrete = T, direction = -1) +  
+    viridis::scale_color_viridis(name = legendtitle, option = "D", discrete = T, direction = -1) +  
+    xlab("months") + ylab(yaxis_title) + ggtitle(vital_rate) +
     theme(legend.position = "bottom")
   
   
