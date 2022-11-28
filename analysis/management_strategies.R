@@ -13,7 +13,7 @@ library(forecast)
 # args = commandArgs(trailingOnly = T)
 
 # setwd(args[1])
-
+source("R/functions_ibm.R")
 source("R/functions_ipmr.R")
 
 ## -------------------------------------------------------------------------------------------
@@ -36,59 +36,47 @@ clim_ts <- fut_clim %>%
 # Projections will be from 2022 to 2100
 
 n_it = 79
+lag = 24
+## -------------------------------------------------------------------------------------------
+## Format CHELSA's time series for IBM
+## -------------------------------------------------------------------------------------------
 
+fut_clim <- read.csv("data/CHELSA_future_ts_formatted.csv") %>% 
+  filter(complete.cases(.))
+
+clim_ts <- fut_clim %>% 
+  filter(scenario != "historical") %>%
+  dplyr::select(c(locality, model, scenario, month, year, pr_scaled, tas_scaled, pet_scaled)) %>%
+  pivot_longer(., contains("scaled"), values_to = "value", names_to = "variable") %>%
+  split(., list(.$locality, .$model, .$scenario, .$variable)) %>%
+  lapply(., function(x) {
+    x %>% mutate(value = ts(value, frequency = 12 , start = c(2006,1)))
+  })
+
+hist_clim <- readRDS("results/rds/ARIMA_clim_mods.rds")$clim_hist_model %>%
+  lapply(., function(x)
+    simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
+      ts(., start= c(2019,1), frequency = 12))
 
 ## -------------------------------------------------------------------------------------------
-## Other variables for IPM
+## Other variables for IBM
 ## -------------------------------------------------------------------------------------------
 
 VR_FLM <- readRDS("results/rds/VR_FLM.rds")
 state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
-lag = 24
 
 params <- list(
   surv_mod = VR_FLM$surv,
-  s_int = coef(VR_FLM$surv)[1],
-  s_stems = coef(VR_FLM$surv)[2],
-  s_site_CR = 0,
-  s_site_HK = coef(VR_FLM$surv)[3],
-  s_site_KS = coef(VR_FLM$surv)[4],
-  s_site_RU = coef(VR_FLM$surv)[5],
-  s_shading = coef(VR_FLM$surv)[6],
   
   grow_mod = VR_FLM$growth,
-  g_int = coef(VR_FLM$growth)[1],
-  g_stems = coef(VR_FLM$growth)[2],
-  g_site_CR = 0,
-  g_site_HK = coef(VR_FLM$growth)[3],
-  g_site_KS = coef(VR_FLM$growth)[4],
-  g_site_RU = coef(VR_FLM$growth)[5],
   grow_sd = sd(resid(VR_FLM$growth)),
   
   pflower_mod = VR_FLM$flower_p,
-  fp_int = coef(VR_FLM$flower_p)[1],
-  fp_stems = coef(VR_FLM$flower_p)[2],
-  fp_site_CR = 0,
-  fp_site_HK = coef(VR_FLM$flower_p)[3],
-  fp_site_KS = coef(VR_FLM$flower_p)[4],
-  fp_site_RU = coef(VR_FLM$flower_p)[5],
-  fp_slope = coef(VR_FLM$flower_p)[6],
   
   pabort_mod = VR_FLM$abort_p,
-  ab_int = coef(VR_FLM$abort_p)[1],
-  ab_stems = coef(VR_FLM$abort_p)[2],
-  ab_site_CR = 0,
-  ab_site_HK = coef(VR_FLM$abort_p)[3],
-  ab_site_KS = coef(VR_FLM$abort_p)[4],
-  ab_site_RU = coef(VR_FLM$abort_p)[5],
   
   nseed_mod = VR_FLM$n_seeds,
-  ns_int = coef(VR_FLM$n_seeds)[1],
-  ns_stems = coef(VR_FLM$n_seeds)[2],
-  ns_site_CR = 0,
-  ns_site_HK = coef(VR_FLM$n_seeds)[3],
-  ns_site_KS = coef(VR_FLM$n_seeds)[4],
-  ns_site_RU = coef(VR_FLM$n_seeds)[5],
+  nseed_sd = sd(resid(VR_FLM$n_seeds)),
   
   seed_surv1 = 0.57826,  ## Probability of seed being viable at the next census 
   seed_surv2 = 0.15374,  ## Probability of viable seed surviving first year in seed bank. 
@@ -98,18 +86,11 @@ params <- list(
   
   germ_mean = mean(state_independent_variables$est_germination_rate$germ),     
   
-  sdl_surv_mod = state_independent_variables$sdl_surv,
-  sdl_s_int = lme4::fixef(state_independent_variables$sdl_surv)[1],
+  sdl_surv_mean = boot::inv.logit(fixef(state_independent_variables$sdl_surv)),
   
   sdl_d_int = lme4::fixef(state_independent_variables$sdl_size_d)[1],
-  sdl_size_d_sd = sd(resid(state_independent_variables$sdl_size_d))
+  sdl_d_sd = sd(resid(state_independent_variables$sdl_size_d))
 )
-
-
-## Set integration params
-L <- min(VR_FLM$growth$model$ln_stems_t0, na.rm = T)
-U <- max(VR_FLM$growth$model$ln_stems_t0, na.rm = T) * 1.1
-n = 100
 
 
 ## Starting population vector
@@ -122,17 +103,11 @@ pop_n <- list(CR = 45,
               RU = 43
 )
 
-scalar1 <- function(x) {x / sum(x)}
-
-pop_vec <- lapply(data, function(x){
-  vec <- table(cut((x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0, 
-                   breaks=seq(L,U,length.out=(n+1))))
-  return(scalar1(vec))
-}
-) %>% purrr::map2(., pop_n, ~t(.x) * .y)
-
+pop_vec <- lapply(data, function(x) (x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0) %>%
+  purrr::map2(., pop_n, ~ rep(.x, round(.y/length(.x),0)))
 
 sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
+
 
 ## -------------------------------------------------------------------------------------------
 ## Set up environmental values
@@ -141,62 +116,72 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- 2
-slope <- 20
-yrs_between_man <- seq(2, 10, by = 2)
-effort_trans <- seq(5, 50, by = 5)
-effort_seed <- seq(1000, 10000, by = 1000)
+shading <- seq(0,6, length.out = 4)
+slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
+yrs_between_man <- seq(2, 10, by = 2)
+effort_trans <- seq(5, 50, by = 5)
+effort_seed <- seq(1000, 10000, by = 1000)
+
+df_characteristics <- data.frame(
+  localities = localities,
+  mean_slope = sapply(data, function(x) mean(x$slope, na.rm = T)),
+  sd_slope = sapply(data, function(x) sd(x$slope, na.rm = T))
+)
 
 df_env_trans <- expand.grid(localities = localities, 
-                      shading = shading, 
-                      slope = slope,
-                      scenario = scenario,
-                      model = model,
-                      effort = effort_trans,
-                      yrs_between_man = yrs_between_man
-) %>% 
-  mutate(localities = as.character(localities))
-
-df_env_seed <- expand.grid(localities = localities, 
                             shading = shading, 
                             slope = slope,
                             scenario = scenario,
                             model = model,
-                            effort = effort_seed,
+                            effort = effort_trans,
                             yrs_between_man = yrs_between_man
 ) %>% 
   mutate(localities = as.character(localities))
+df_env_trans <- df_env_trans[rep(1:nrow(df_env_trans), 10),]
+df_env_trans <- left_join(df_env_trans, df_characteristics) %>% rowid_to_column()
+
+df_env_seed <- expand.grid(localities = localities, 
+                           shading = shading, 
+                           slope = slope,
+                           scenario = scenario,
+                           model = model,
+                           effort = effort_seed,
+                           yrs_between_man = yrs_between_man
+) %>% 
+  mutate(localities = as.character(localities))
+df_env_seed <- df_env_seed[rep(1:nrow(df_env_seed), 10),]
+df_env_seed <- left_join(df_env_seed, df_characteristics) %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------
-## IPM
+## IBM
 ## -------------------------------------------------------------------------------------------
-
 
 ### Set up parallel
-cl <- makeCluster(detectCores() - 2 ) 
+cl <- makeCluster(detectCores() - 2 )
 # cl <- makeForkCluster(outfile = "")
 
-clusterExport(cl=cl, c("df_env_trans", "df_env_seed",
-                       "man_trans", "man_seedadd", "proto_ipm", 
-                       "params", "clim_ts", "pop_vec", "sdl_n", 
-                       "U", "L", "n", "n_it", "lag",
-                       "sampling_env", "FLM_clim_predict"))
+clusterExport(cl=cl, c("df_env_trans", "df_env_seed", 
+                       "man_trans", "man_seedadd",
+                       "yearly_loop", "mod_pred",
+                       "params", "clim_ts", "hist_clim",
+                       "pop_vec", "sdl_n",
+                       "n_it", "lag", "sampling_env"))
 
-clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
+clusterEvalQ(cl, c(library("dplyr"), library("forecast")))
 
 df_trans <- parLapplyLB(cl,
                   as.list(c(1:nrow(df_env_trans))),
-                  function(x) tryCatch(man_trans(i = x, df_env = df_env_trans,
+                  function(x) man_trans(i = x, df_env = df_env_trans,
                                                  params = params,
                                                  pop_vec = pop_vec, sdl_n = sdl_n,
                                                  clim_ts = clim_ts,
                                                  n_it = n_it, 
-                                                 U = U, L = L, n = n), 
-                                       error = function(e) NULL)) %>% 
+                                                 U = U, L = L, n = n)
+                  ) %>% 
   bind_rows()
 
 saveRDS(df_trans, file = "results/rds/managment_projections_transplants.rds")
