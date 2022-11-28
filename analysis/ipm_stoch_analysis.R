@@ -68,11 +68,10 @@ params <- list(
   ns_site_KS = coef(VR_FLM$n_seeds)[4],
   ns_site_RU = coef(VR_FLM$n_seeds)[5],
   
-  seed_surv1 = 0.57826,  ## Probability of seed being viable at the next census 
-  seed_surv2 = 0.15374,  ## Probability of viable seed surviving first year in seed bank. 
+  seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
+  seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
   ## (i.e. produced in t, surv to census t+1 (with % above), not germinated in t+1 and 
-  ## then remain viable in seedbank till census t+2 with % of 0.15374) 
-  seed_surv3 = 0.66658,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
+  seed_surv3 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
   
   germ_mean = mean(state_independent_variables$est_germination_rate$germ),     
   

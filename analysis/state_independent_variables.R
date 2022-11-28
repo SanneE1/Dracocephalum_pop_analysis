@@ -28,7 +28,7 @@ df <- plyr::join_all(list(n_seeds_t0, n_seeds_t1, n_seeds_t2, n_sdl_t3)) %>% ung
 germ_model <- rethinking::ulam(
   alist(
     ln_n_sdl_t3 ~ dnorm(sdl_mean, sdl_sd),
-    sdl_mean <- (n_seeds_t2 * 0.578 * germ) + (n_seeds_t1 * (0.578 * (1-germ)) * (0.154 * germ)) + ((n_seeds_t1 * (0.578 * (1-germ)) * (0.154 * germ)) * (0.667 * germ)), 
+    sdl_mean <- (n_seeds_t2 * 0.45 * germ) + (n_seeds_t1 * (0.45 * (1-germ)) * (0.089 * germ)) + ((n_seeds_t1 * (0.45 * (1-germ)) * (0.089 * germ)) * (0.663 * germ)), 
     germ ~ dbeta(alpha, kappa),
     alpha ~ dnorm(2, 0.25),
     kappa ~ dnorm(10, 1),

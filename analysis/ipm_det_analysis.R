@@ -157,9 +157,9 @@ names(sdl_d_params) <- c("sdl_d_int",
 
 other_params <- list(
   
-  seed_surv1 = 0.57826,  
-  seed_surv2 = 0.15374,  
-  seed_surv3 = 0.66658,  
+  seed_surv1 = 0.45,  
+  seed_surv2 = 0.089,  
+  seed_surv3 = 0.663,  
   
   germ_mean = mean(state_independent_variables$est_germination_rate$germ)    
   
