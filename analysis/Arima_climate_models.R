@@ -8,8 +8,8 @@ clim_l <- read.csv('data/CHELSA_data.csv') %>%
   arrange(year, month) %>% pivot_longer(c("tas_scaled", "pr_scaled", "pet_scaled"), names_to = "variable", values_to = "value") %>%
   split(., list(.$locality, .$variable) ) %>% 
   lapply(., function(x) 
-    x %>% filter(complete.cases(x) & year %in% c(1985:2014)) %>% dplyr::select(value) %>%
-      ts(., frequency = 12, start = c(1985,1))) %>%
+    x %>% filter(complete.cases(x) & year %in% c(1989:2018)) %>% dplyr::select(value) %>%
+      ts(., frequency = 12, start = c(1989,1))) %>%
   lapply(., auto.arima)
 
 
