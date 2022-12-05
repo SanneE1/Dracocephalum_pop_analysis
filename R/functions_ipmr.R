@@ -22,8 +22,7 @@ sampling_env <- function(iteration, env_params, start_year = 2023) {
               temp = tas_sim,
               precip = pr_sim,
               pet = pet_sim,
-              shading = env_params$shading,
-              slope = env_params$slope
+              shading = env_params$shading
   ))
 }
 
@@ -36,7 +35,6 @@ FLM_clim_predict <- function(model, lag_vec,
     ln_stems_t0 = 2,  
     population = "CR",
     tot_shading_t0 = 0,
-    slope = 0,
     soil_depth = 0,
     year_t0 = 2016,
     tot_shading_m = matrix(rep(shading, length(lag_vec)), nrow = 1),
@@ -99,7 +97,6 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_slope * slope +
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags,
                          temp_vec = temp,
@@ -141,7 +138,6 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_slope * slope + 
         FLM_clim_predict(model = pflower_mod,
                          lag_vec = lags,
                          temp_vec = temp,
@@ -322,8 +318,7 @@ ipm_loop <- function(i, df_env, params,
     clim_sim,
     list(
       lags = lag,
-      shading = df_env$shading[i],
-      slope = df_env$slope[i]
+      shading = df_env$shading[i]
     ))
   ipm <- run_ipm(params = params, env_params = env_params, 
                  locality = toupper(loc), 
@@ -334,7 +329,6 @@ ipm_loop <- function(i, df_env, params,
                     model = df_env$model[i],
                     scenario = df_env$scenario[i],
                     shading = df_env$shading[i],
-                    slope = df_env$slope[i],
                     lambda = lambda(ipm))
   
   return(df1)

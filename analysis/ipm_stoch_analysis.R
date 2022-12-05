@@ -97,21 +97,18 @@ n = 100
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
 shading <- seq(0,6, length.out = 4)
-slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
 df_env_hist <- expand.grid(localities = localities, 
                            shading = shading, 
-                           slope = slope,
                            time = "hist",
                            scenario = NA,
                            model = NA
 ) 
 df_env_fut <- expand.grid(localities = localities, 
                           shading = shading, 
-                          slope = slope,
                           time = "future",
                           scenario = scenario,
                           model = model
@@ -120,7 +117,7 @@ df_env_fut <- expand.grid(localities = localities,
 df_env <- rbind(df_env_hist, df_env_fut) %>% 
   mutate(localities = as.character(localities))
 
-rep <- rep(c(1:nrow(df_env)), each = 10)
+rep <- rep(c(1:nrow(df_env)), each = 30)
 
 # ### Set up parallel
 # cl <- makeForkCluster(outfile = "")  
