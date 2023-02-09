@@ -10,7 +10,7 @@ clim_l <- read.csv('data/CHELSA_data.csv') %>%
   lapply(., function(x) 
     x %>% filter(complete.cases(x) & year %in% c(1989:2018)) %>% dplyr::select(value) %>%
       ts(., frequency = 12, start = c(1989,1))) %>%
-  lapply(., auto.arima)
+  lapply(., function(x) auto.arima(x, stationary = T, allowdrift = F))
 
 
 fut_l <- read.csv("data/CHELSA_future_ts_formatted.csv") %>%
@@ -21,7 +21,7 @@ fut_l <- read.csv("data/CHELSA_future_ts_formatted.csv") %>%
   lapply(., function(x) 
     x %>% filter(complete.cases(x) & year > 2070) %>% dplyr::select(value) %>%
       ts(. , frequency = 12, start = c(2071,1))) %>%
-  lapply(., auto.arima)
+  lapply(., function(x) auto.arima(x, stationary = T, allowdrift = F))
 
 
 arima_l <- list(clim_hist_model = clim_l,
