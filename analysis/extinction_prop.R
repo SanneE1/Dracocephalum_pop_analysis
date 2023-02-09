@@ -102,7 +102,7 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
 shading <- seq(0,6, length.out = 4)
-slope <- seq(0,80, length.out = 4)
+# slope <- seq(0,80, length.out = 4)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
@@ -110,7 +110,6 @@ scenario <- c("rcp45", "rcp85")
 
 df_env <- expand.grid(localities = localities, 
                       shading = shading, 
-                      slope = slope,
                       scenario = scenario,
                       model = model
 ) %>% 
@@ -118,27 +117,19 @@ df_env <- expand.grid(localities = localities,
         expand.grid(
           localities = localities, 
           shading = shading, 
-          slope = slope,
+          # slope = slope,
           scenario = NA,
           model = "No change"
         )) %>% 
   mutate(localities = as.character(localities)) 
-df_env <- df_env[rep(1:nrow(df_env), 10),]
-
-df_characteristics <- data.frame(
-  localities = localities,
-  mean_slope = sapply(data, function(x) mean(x$slope, na.rm = T)),
-  sd_slope = sapply(data, function(x) sd(x$slope, na.rm = T))
-)
-
-df_env <- left_join(df_env, df_characteristics) %>% rowid_to_column()
+df_env <- df_env[rep(1:nrow(df_env), 30),] %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------
 ## IBM
 ## -------------------------------------------------------------------------------------------
-
+print("start ibm")
 ### Set up parallel
-cl <- makeCluster(detectCores() - 2 )
+cl <- makeCluster(detectCores() - 2, outfile = "")
 # cl <- makeForkCluster(outfile = "")
 
 clusterExport(cl=cl, c("df_env", "ibm_ext_p", "yearly_loop", "mod_pred",
@@ -162,6 +153,9 @@ df <- parLapply(cl=cl,
 stopCluster(cl)
 
 saveRDS(df, file = "results/rds/extinction_probability.rds")
+
+
+rm(list = ls())
 
 
 
