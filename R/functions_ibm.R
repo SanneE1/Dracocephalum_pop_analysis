@@ -10,7 +10,7 @@ mod_pred <- function(indi, model,
     ln_stems_t0 = indi$size,  
     population = rep(toupper(locality), n),
     tot_shading_t0 = indi$shading,
-    slope = indi$slope,
+    # slope = indi$slope,
     year_t0 = rep(2016, n),   ## just a dummy, should be ignored when predicting below
     tot_shading_m = matrix(indi$shading, ncol = (lag+1), nrow = n),
     lags = matrix(clim$lags, ncol = (lag+1), nrow = n, byrow = T),
@@ -26,16 +26,16 @@ mod_pred <- function(indi, model,
 }
 
 yearly_loop <- function(yr, env_params, locality,
-                        indi, sdl, sb1, sb2,
-                        slope_mean, slope_sd) {
+                        indi, sdl, sb1, sb2){ #,
+                        # slope_mean, slope_sd) {
   
     # retrieve this year's climate
     clim <- sampling_env(iteration = yr, env_params = env_params, start_year = 2021)
     
-    # Plants ------------------------------------------------------
-    
-    # population size
+    # calculate population size 
     pop_size <- nrow(indi)
+    
+    # Plants ------------------------------------------------------
     
     # generate binomial random number for survival
     surv <- rbinom(n = pop_size, prob = mod_pred(indi = indi, model = params$surv_mod,
@@ -109,12 +109,13 @@ yearly_loop <- function(yr, env_params, locality,
     # New recruits into plant stage
     new_indi <- data.frame(
       size = rnorm(sdl_to_plant, mean = params$sdl_d_int, sd = params$sdl_d_sd),
-      shading = rpois(sdl_to_plant, env_params$shading),
-      slope = rgamma(sdl_to_plant, (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
+      shading = rpois(sdl_to_plant, env_params$shading) #,
+      # slope = rgamma(sdl_to_plant, (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
     )
     
     # Set next steps individuals dataframe  ------------------------------------------------------
-    indi <- rbind(indi_z1 %>% select(z1, shading, slope) %>% filter(!is.na(z1)) %>% rename(size = z1),
+    indi <- rbind(indi_z1 %>% select(z1, shading) %>% #, slope) %>% 
+                    filter(!is.na(z1)) %>% rename(size = z1),
                   new_indi)
     
     
@@ -131,15 +132,15 @@ ibm_ext_p <- function(i, df_env, params,
                       clim_ts, clim_hist,
                       pop_vec, sdl_n,
                       n_it) {
-  print(i)
+  message(i)
   
   # Simulation settings
   scenario <- df_env$scenario[i]
   model <- df_env$model[i]
   locality <- df_env$localities[i]
   
-  slope_mean <- df_env$mean_slope[i]
-  slope_sd <- df_env$sd_slope[i]
+  # slope_mean <- df_env$mean_slope[i]
+  # slope_sd <- df_env$sd_slope[i]
   
   if(model == "No change") {
     
@@ -157,8 +158,8 @@ ibm_ext_p <- function(i, df_env, params,
   env_params <- append(
     clim_mod,
     list(lags = lag,
-         shading = df_env$shading[i],
-         slope = df_env$slope[i]
+         shading = df_env$shading[i] #,
+         # slope = df_env$slope[i]
     ))
   
   
@@ -170,14 +171,12 @@ ibm_ext_p <- function(i, df_env, params,
   sb2 = 1000
   
   # set up starting shading & slope
-  pop_shading <- rpois(length(pop_vec), env_params$shading)
-  pop_slope <- rgamma(length(pop_vec), (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
-  
+  pop_shading <- rbinom(n = length(pop_vec), 20, prob = (env_params$shading/20))
+
   # Set up start population
   indi <- data.frame(
     size = pop_vec,
-    shading = pop_shading,
-    slope = pop_slope
+    shading = pop_shading
   )
   
   pop_size <- data.frame(
@@ -187,15 +186,14 @@ ibm_ext_p <- function(i, df_env, params,
     n_sb1 = c(sb1, rep(NA, 79)),
     n_sb2 = c(sb2, rep(NA, 79))
   )
-  
+
   ## IBM
   yr <- 1
   
   while (yr < 80 & nrow(indi) > 0){
   
     ibm_yr <- yearly_loop(yr, env_params, locality,
-                          indi, sdl, sb1, sb2,
-                          slope_mean, slope_sd)
+                          indi, sdl, sb1, sb2)
     
     yr <- ibm_yr$yr
     indi <- ibm_yr$indi
@@ -215,7 +213,6 @@ ibm_ext_p <- function(i, df_env, params,
     model = model,
     scenario = scenario,
     shading = df_env$shading[i],
-    slope = df_env$slope[i],
     below_ext_size = any(pop_size$n_plants < 10), 
     yr_of_ext = ifelse(any(pop_size$n_plants < 10), min(which(pop_size$n_plants < 10)), NA)
   )
@@ -245,8 +242,8 @@ man_trans <- function(i, df_env, params,
   yrs_between_man <- df_env$yrs_between_man[i]
   effort <- df_env$effort[i]
   
-  slope_mean <- df_env$mean_slope[i]
-  slope_sd <- df_env$sd_slope[i]
+  # slope_mean <- df_env$mean_slope[i]
+  # slope_sd <- df_env$sd_slope[i]
   
   txt <- paste(locality, model, scenario, sep = '.*')
   clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
@@ -257,8 +254,8 @@ man_trans <- function(i, df_env, params,
   env_params <- append(
     clim_mod,
     list(lags = lag,
-         shading = df_env$shading[i],
-         slope = df_env$slope[i]
+         shading = df_env$shading[i] #,
+         # slope = df_env$slope[i]
     ))
   
   
@@ -271,7 +268,7 @@ man_trans <- function(i, df_env, params,
   
   # set up starting shading & slope
   pop_shading <- rpois(length(pop_vec), env_params$shading)
-  pop_slope <- rgamma(length(pop_vec), (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
+  # pop_slope <- rgamma(length(pop_vec), (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
   
   # Set up management
   management_yrs <- seq(from = 1, to = 80, by = yrs_between_man)
@@ -279,8 +276,8 @@ man_trans <- function(i, df_env, params,
   # Set up start population
   indi <- data.frame(
     size = pop_vec,
-    shading = pop_shading,
-    slope = pop_slope
+    shading = pop_shading#,
+    # slope = pop_slope
   )
   
   pop_size <- data.frame(
@@ -299,15 +296,15 @@ man_trans <- function(i, df_env, params,
     if(yr %in% management_yrs) {
       transplant_indi <- data.frame(
         size = rnorm(effort, mean = params$sdl_d_int, sd = params$sdl_d_sd),
-        shading =  rpois(effort, env_params$shading),
-        slope = rgamma(effort, (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
+        shading =  rpois(effort, env_params$shading)#,
+        # slope = rgamma(effort, (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
       )
       indi <- rbind(indi, transplant_indi)
     }
     
     ibm_yr <- yearly_loop(yr, env_params, locality,
-                          indi, sdl, sb1, sb2,
-                          slope_mean, slope_sd)
+                          indi, sdl, sb1, sb2) #,
+                          # slope_mean, slope_sd)
     
     
     yr <- ibm_yr$yr
@@ -328,7 +325,7 @@ man_trans <- function(i, df_env, params,
     model = model,
     scenario = scenario,
     shading = df_env$shading[i],
-    slope = df_env$slope[i],
+    # slope = df_env$slope[i],
     effort = df_env$effort[i],
     yrs_between_man = yrs_between_man,
     below_ext_size = any(pop_size$n_plants < 10), 
@@ -362,8 +359,8 @@ man_seedadd <- function(i, df_env, params,
   yrs_between_man <- df_env$yrs_between_man[i]
   effort <- df_env$effort[i]
   
-  slope_mean <- df_env$mean_slope[i]
-  slope_sd <- df_env$sd_slope[i]
+  # slope_mean <- df_env$mean_slope[i]
+  # slope_sd <- df_env$sd_slope[i]
   
   txt <- paste(locality, model, scenario, sep = '.*')
   clim_mod <- clim_ts[grep(txt, names(clim_ts), value = T)] %>%
@@ -388,7 +385,7 @@ man_seedadd <- function(i, df_env, params,
   
   # set up starting shading & slope
   pop_shading <- rpois(length(pop_vec), env_params$shading)
-  pop_slope <- rgamma(length(pop_vec), (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
+  # pop_slope <- rgamma(length(pop_vec), (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
   
   # Set up management
   management_yrs <- seq(from = 1, to = 80, by = yrs_between_man)
@@ -396,8 +393,8 @@ man_seedadd <- function(i, df_env, params,
   # Set up start population
   indi <- data.frame(
     size = pop_vec,
-    shading = pop_shading,
-    slope = pop_slope
+    shading = pop_shading#,
+    # slope = pop_slope
   )
   
   pop_size <- data.frame(
@@ -418,8 +415,8 @@ man_seedadd <- function(i, df_env, params,
     }
     
     ibm_yr <- yearly_loop(yr, env_params, locality,
-                          indi, sdl, sb1, sb2,
-                          slope_mean, slope_sd)
+                          indi, sdl, sb1, sb2) #,
+                          # slope_mean, slope_sd)
     
     
     yr <- ibm_yr$yr
@@ -440,7 +437,7 @@ man_seedadd <- function(i, df_env, params,
     model = model,
     scenario = scenario,
     shading = df_env$shading[i],
-    slope = df_env$slope[i],
+    # slope = df_env$slope[i],
     effort = df_env$effort[i],
     yrs_between_man = yrs_between_man,
     below_ext_size = any(pop_size$n_plants < 10), 
