@@ -46,6 +46,11 @@ data$stage_t0[which(is.na(data$stage_t0) & data$n_fl_stems_t0 > 0)] <- "flow"
 data$stage_t0[which(is.na(data$stage_t0) & data$n_fl_stems_t0 == 0 & data$n_veg_stems_t0 > 0)] <- "veg"
 data$stage_t0[which(is.na(data$stage_t0) & data$n_fl_stems_t0 == 0 & data$n_veg_stems_t0 == 0)] <- "dead"
 
+# Transcript error (herb shading = 13 instead of herb = 1, shrub = 3)
+data$herb_shading_t0[which(data$plant_ID == "HAK_105" & data$year_t0 == 2017)] <- 1
+data$shrub_shading_t0[which(data$plant_ID == "HAK_105" & data$year_t0 == 2017)] <- 3
+
+
 write.csv(data, "data/Dracocephalum_long_format.csv", row.names = F)
 
 raw_data_long_format <- data
