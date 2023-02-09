@@ -63,8 +63,7 @@ ggsave(ind_lambdas, filename = "results/individual_lambdas.tiff",
 ## --------------------------------------------------------------------
 ## Stochastic simulations
 ## --------------------------------------------------------------------
-df <- read.csv("results/overview_lambda_env_levels.csv") %>%
-  mutate(slope = round(slope, digits = 5))
+df <- read.csv("results/overview_lambda_env_levels.csv")
 
 # mod <- lm(lambda ~ locality + model + scenario + shading + slope, data = df)
 # 
@@ -87,11 +86,11 @@ stoch_lam45_smooth <- ggplot(df %>% filter(scenario %in% c("hist", "rcp45"))) +
   geom_smooth(aes(x = shading, y = lambda, linetype = model, colour = model)) +
   facet_wrap(vars(locality), ncol = 4, scales = "free") +
   scale_colour_manual(name = "Model",
-                      values = c("hist" = "blue",
-                                 "ACCESS1" = "red",
-                                 "CESM1" = "red",
-                                 "CMCC" = "red",
-                                 "MIROC5" = "red"),
+                      values = c("hist" = "#000000",
+                                 "ACCESS1" = "#D55E00",
+                                 "CESM1" = "#0072B2",
+                                 "CMCC" = "#56B4E9",
+                                 "MIROC5" = "#E69F00"),
                       labels = c("hist" = "Historical",
                                  "ACCESS1" = "ACCESS1",
                                  "CESM1" = "CESM1",
@@ -105,17 +104,17 @@ stoch_lam45_smooth <- ggplot(df %>% filter(scenario %in% c("hist", "rcp45"))) +
                      guide = "none") +
   guides(colour = guide_legend(override.aes = list(linetype = c(1:5)))) +
   ylab("stochastic population growth rate (log)") + xlab("shading level") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") 
 
 stoch_lam85_smooth <- ggplot(df %>% filter(scenario %in% c("hist", "rcp85"))) +
   geom_smooth(aes(x = shading, y = lambda, linetype = model, colour = model)) +
   facet_wrap(vars(locality), ncol = 4, scales = "free") +
   scale_colour_manual(name = "Model",
-                      values = c("hist" = "blue",
-                                 "ACCESS1" = "red",
-                                 "CESM1" = "red",
-                                 "CMCC" = "red",
-                                 "MIROC5" = "red"),
+                      values = c("hist" = "#000000",
+                                 "ACCESS1" = "#D55E00",
+                                 "CESM1" = "#0072B2",
+                                 "CMCC" = "#56B4E9",
+                                 "MIROC5" = "#E69F00"),
                       labels = c("hist" = "Historical",
                                  "ACCESS1" = "ACCESS1",
                                  "CESM1" = "CESM1",
@@ -158,48 +157,48 @@ clim_sim_fut <- lapply(arima_clim$clim_future_model, function(x) {
 
 
 Cr_pet_a <- ggplot() + 
-  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.pet_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.pet_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   labs(title = "PET")
 Cr_tas_a <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.tas_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.tas_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   labs(title = "Average temperature")
 Cr_pr_a <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.pr_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.ACCESS1-3.rcp45.pr_scaled`, aes(x = date, y = value, colour = "ACCESS1-3")) +
   labs(title = "Precipitation")
 
 
-Cr_pet_m <- ggplot() + 
-  geom_line(data = clim_sim_fut$Cr.MIROC5.rcp45.pet_scaled , aes(x = date, y = value, colour = "MIROC5")) +
-  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) 
+Cr_pet_m <- ggplot() +
+  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) + 
+  geom_line(data = clim_sim_fut$Cr.MIROC5.rcp45.pet_scaled , aes(x = date, y = value, colour = "MIROC5")) 
 Cr_tas_m <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.MIROC5.rcp45.tas_scaled`, aes(x = date, y = value, colour = "MIROC5")) +
-  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.MIROC5.rcp45.tas_scaled`, aes(x = date, y = value, colour = "MIROC5")) 
 Cr_pr_m <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.MIROC5.rcp45.pr_scaled`, aes(x = date, y = value, colour = "MIROC5")) +
-  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.MIROC5.rcp45.pr_scaled`, aes(x = date, y = value, colour = "MIROC5")) 
 
 Cr_pet_c <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.pet_scaled`, aes(x = date, y = value, colour = "CMCC-CM")) +
-  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.pet_scaled`, aes(x = date, y = value, colour = "CMCC-CM"))
 Cr_tas_c <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.tas_scaled`, aes(x = date, y = value, colour = "CMCC-CM")) +
-  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.tas_scaled`, aes(x = date, y = value, colour = "CMCC-CM"))
 Cr_pr_c <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.pr_scaled`, aes(x = date, y = value, colour = "CMCC-CM")) +
-  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CMCC-CM.rcp45.pr_scaled`, aes(x = date, y = value, colour = "CMCC-CM")) 
 
 Cr_pet_e <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.pet_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) +
-  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.pet_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.pet_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) 
 Cr_tas_e <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.tas_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) +
-  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.tas_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.tas_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) 
 Cr_pr_e <- ggplot() +
-  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.pr_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) +
-  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) 
+  geom_line(data = clim_sim_hist$Cr.pr_scaled, aes(x = date, y = value, colour = "Historic")) +
+  geom_line(data = clim_sim_fut$`Cr.CESM1-BGC.rcp45.pr_scaled`, aes(x = date, y = value, colour = "CESM1-BGC")) 
 
 col_scale <- scale_colour_manual(name = "ARIMA model",
                                  values = c("Historic" = "#0033FF",
@@ -224,8 +223,12 @@ ggsave("results/exploratory plots/arima_climate_sim1.tiff", sim_clim,
 ## --------------------------------------------------------------------
 ## Extinciton probability
 ## --------------------------------------------------------------------
+source("R/functions_extinction_plots.R")
+
 df <- readRDS(file = "results/rds/extinction_probability.rds") %>%
-  mutate(locality = as.factor(locality))
+  mutate(locality = as.factor(locality),
+         yr_of_ext = yr_of_ext + 2022,
+         yr_of_ext = replace_na(yr_of_ext, 2101))
 names(df$pop_size) <- paste(df$locality, df$model, df$scenario, c(1:nrow(df)), sep = "_")
 
 levels(df$scenario) <- c(levels(df$scenario), "historical")
@@ -264,71 +267,53 @@ ext <- ext_pl %>% cbind(.,
                         pop_size_sb1 = ext_sb1$pop_size_sb1, 
                         pop_size_sb2 = ext_sb2$pop_size_sb2) %>%
   mutate(below_ext_size = ifelse(pop_size_plant < 10, T, F)) 
-
-  
-
 rm(ext_pl, ext_sdl, ext_sb1, ext_sb2)
 
 
-pop_size <- ggplot(ext %>%
-                     filter(model %in% c("No change", "ACCESS1") &
-                              scenario != "rcp85")) +
-  geom_line(aes(x = year,
-                y = pop_size_plant,
-                colour = shading,
-                group = rowid), alpha = 0.5) +
-  geom_hline(aes(yintercept = 10)) +
-  viridis::scale_color_viridis(option = "D", discrete = T, direction = -1) +  
-  facet_grid(rows = vars(locality), cols = vars(model), scales = "free") +
-  xlab("Simulation year") + ylab("Population size")
+## Actual plotting
+pop_sizes <- pop_dyn_plot(ext)
+ext_years <- ext_yr_plot(df)
+
+wrap_plots(pop_sizes, guides = "collect")
+wrap_plots(ext_years, guides = "collect")
 
 
-ggsave(pop_size, filename = "results/plot_population_size_ext_simulation.tiff",
-       width = 7, height = 8, units = "in", dpi = 400, type = "cairo")
+(pop_sizes[[1]] + annotation_custom(ggplotGrob(ext_years[[1]]), 
+                                           xmin = 2060, xmax = 2100, 
+                                           ymin = 20, ymax = 60)
+  )/ (
+    pop_sizes[[2]] + annotation_custom(ggplotGrob(ext_years[[2]]), 
+                                   xmin = 2060, xmax = 2100, 
+                                   ymin = 20, ymax = 60)
+) / (
+pop_sizes[[5]] + annotation_custom(ggplotGrob(ext_years[[5]]), 
+                                   xmin = 2060, xmax = 2100, 
+                                   ymin = 20, ymax = 56)
+) + plot_layout(guides = "collect")
+
+
 
 
 # 
-# mod_all <- lm(yr_of_ext ~ locality + model + scenario + shading + slope, data = df)
-# 
-# drop1(mod_all, test = "Chisq") %>% 
-#   rownames_to_column("dropped_covariate") %>%
-#   rename(p_value = `Pr(>Chi)`) %>%
-#   mutate(
-#     p_adj_BH = p.adjust(p_value,method="BH",n=96),
-#     p_adj_holm = p.adjust(p_value,method="holm",n=96),
-#     include = ifelse(p_value < 0.05 & p_adj_BH < 0.05 & p_adj_holm < 0.5, "yes", "no")
-#   ) %>% as_tibble()
-# 
-# mod <- lm(yr_of_ext ~ locality + model + shading, data = df)
-# summary(mod)
+# pop_size_MS <- ggplot(ext %>%
+#                      filter(model %in% c("No change", "CMCC") &
+#                        scenario != "rcp85")) +
+#   geom_line(aes(x = year,
+#                 y = pop_size_plant,
+#                 colour = shading,
+#                 group = rowid), alpha = 0.5) +
+#   geom_hline(aes(yintercept = 10)) +
+#   viridis::scale_color_viridis(option = "D", discrete = T, direction = -1) +  
+#   facet_grid(rows = vars(locality), cols = vars(model), scales = "free") +
+#   xlab("Simulation year") + ylab("Population size")
 
 
+# ggsave(pop_size_all, filename = "results/plot_population_size_ext_simulation.tiff",
+#        width = 11, height = 8, units = "in", dpi = 400, type = "cairo")
 
-# probability of extinction (0-1) vs time
+# ggsave(pop_size_MS, filename = "results/plot_population_size_ext_simulation_MS.tiff",
+#        width = 7, height = 8, units = "in", dpi = 400, type = "cairo")
 
-ext_p <- ext %>% 
-  group_by(locality, model, scenario, shading, slope, year) %>%
-  summarise(runs = n(),
-            extinct = sum(below_ext_size),
-            p_extinct = extinct / runs)
-
-
-ggplot(ext_p) + 
-  # geom_line(aes(x = year, 
-  #               y = p_extinct, 
-  #               colour = shading, 
-  #               linetype = model,
-  #               group = interaction(model, scenario, slope, shading))) +
-  geom_smooth(aes(x = year, 
-                y = p_extinct, 
-                colour = shading, 
-                # linetype = model,
-                group = interaction(scenario, slope, shading)), 
-              method="glm",
-              method.args=list(family="binomial"), 
-              se = F) +
-  viridis::scale_color_viridis(option = "D", discrete = T, direction = -1) +  
-  facet_grid(rows = vars(locality), cols = vars(model))
 
 
 
