@@ -32,8 +32,7 @@ params <- list(
   s_site_HK = coef(VR_FLM$surv)[3],
   s_site_KS = coef(VR_FLM$surv)[4],
   s_site_RU = coef(VR_FLM$surv)[5],
-  s_shading = coef(VR_FLM$surv)[6],
-  
+
   grow_mod = VR_FLM$growth,
   g_int = coef(VR_FLM$growth)[1],
   g_stems = coef(VR_FLM$growth)[2],
@@ -154,4 +153,4 @@ df <- ipm_loop(i = rep[taskID], df_env = df_env,
          U = U, L = L, n = n) %>%
   mutate(id = taskID)
 
-write.csv(df, file = file.path(args[2], paste0("ipm_stoch_", taskID, ".csv")), row.names = F)
+write.csv(df, file = file.path(args[1], paste0("ipm_stoch_", taskID, ".csv")), row.names = F)

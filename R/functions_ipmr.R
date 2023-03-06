@@ -64,7 +64,6 @@ run_ipm <- function(params, env_params, locality,
       
       s_loc         =  plogis(s_linear_loc),
       s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
-        s_shading * shading + 
         FLM_clim_predict(model = surv_mod, ### spline model prediction
                          lag_vec = lags,
                          temp_vec = temp,
@@ -329,7 +328,7 @@ ipm_loop <- function(i, df_env, params,
                     model = df_env$model[i],
                     scenario = df_env$scenario[i],
                     shading = df_env$shading[i],
-                    lambda = lambda(ipm))
+                    lambda = ipmr::lambda(ipm))
   
   return(df1)
 }
