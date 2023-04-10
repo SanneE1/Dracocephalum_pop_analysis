@@ -1,11 +1,11 @@
 
 pop_dyn_plot <- function(ext) {
   
-  df <- expand.grid(models = c("ACCESS1", "CESM1", "CMCC", "MIROC5", "No change"),
+  df <- expand.grid(models = c("ACCESS1", "CESM1", "CMCC", "MIROC5", "Historical"),
                        population = c("Cr", "Hk", "Ks", "Ru"),
                        stringsAsFactors = F) 
   lims <- data.frame(population = c("Cr", "Hk", "Ks", "Ru"),
-                     ylim = c(50,250,35,50))
+                     ylim = c(70,300,35,50))
   pl_df <- left_join(df, lims) %>% split(., sort(as.numeric(rownames(.))))
   
   names(pl_df) <- paste(df$models, df$population)
@@ -30,7 +30,7 @@ pop_dyn_plot <- function(ext) {
 
 ext_yr_plot <- function(df) {
   
-  d <- expand.grid(models = c("ACCESS1", "CESM1", "CMCC", "MIROC5", "No change"),
+  d <- expand.grid(models = c("ACCESS1", "CESM1", "CMCC", "MIROC5", "Historical"),
                     population = c("Cr", "Hk", "Ks", "Ru"),
                     stringsAsFactors = F) 
   

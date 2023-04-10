@@ -87,12 +87,6 @@ source("analysis/extinction_prop.R")
 # File produced:
 # results/rds/extinction_probability.rds
 
-# Model possible management options -> planting adults or adding seeds
-source("analysis/management_strategies.R")
-# Files produced:
-# results/rds/management_projections_transplants.rds
-# results/rds/management_projections_seedaddition.rds
-
 
 
 # ----------------------------------------------------------------------

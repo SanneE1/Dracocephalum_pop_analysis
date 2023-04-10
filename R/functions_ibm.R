@@ -10,7 +10,6 @@ mod_pred <- function(indi, model,
     ln_stems_t0 = indi$size,  
     population = rep(toupper(locality), n),
     tot_shading_t0 = indi$shading,
-    # slope = indi$slope,
     year_t0 = rep(2016, n),   ## just a dummy, should be ignored when predicting below
     tot_shading_m = matrix(indi$shading, ncol = (lag+1), nrow = n),
     lags = matrix(clim$lags, ncol = (lag+1), nrow = n, byrow = T),
@@ -26,8 +25,7 @@ mod_pred <- function(indi, model,
 }
 
 yearly_loop <- function(yr, env_params, locality,
-                        indi, sdl, sb1, sb2){ #,
-                        # slope_mean, slope_sd) {
+                        indi, sdl, sb1, sb2){ 
   
     # retrieve this year's climate
     clim <- sampling_env(iteration = yr, env_params = env_params, start_year = 2021)
@@ -110,7 +108,6 @@ yearly_loop <- function(yr, env_params, locality,
     new_indi <- data.frame(
       size = rnorm(sdl_to_plant, mean = params$sdl_d_int, sd = params$sdl_d_sd),
       shading = rpois(sdl_to_plant, env_params$shading) #,
-      # slope = rgamma(sdl_to_plant, (slope_mean^2)/(slope_sd^2), (slope_mean)/(slope_sd^2))
     )
     
     # Set next steps individuals dataframe  ------------------------------------------------------

@@ -87,19 +87,19 @@ plot_spline_coeff <- function(best_model,
   
   if(tas) {
     tas_scaledcovar = 1
-    yaxis_title = "temperature"
+    yaxis_title = "temperature \n coefficient estimates"
     covar = "tas"}
   if(pr) {
     pr_scaledcovar = 1
-    yaxis_title = "precipitation"
+    yaxis_title = "precipitation \n coefficient estimates"
     covar = "pr"}
   if(pet) {
     pet_scaledcovar = 1
-    yaxis_title = "PET"
+    yaxis_title = "PET \n coefficient estimates"
     covar = "pet"}
   
   if(shade) {
-    tot_shading_m = c(0,2,4,6)
+    tot_shading_m = c(0,2,4,6) #c(0,3,6,9)
     legendtitle <- "shading level"
     interact = "shading_m"
   }
