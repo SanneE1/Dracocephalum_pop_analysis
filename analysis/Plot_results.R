@@ -298,45 +298,6 @@ wrap_plots(pop_sizes, guides = "collect")
 wrap_plots(ext_years, guides = "collect")
 
 
-MS_size_box <- (pop_sizes[[5]] + ggtitle("Historical climate") + annotation_custom(ggplotGrob(ext_years[[5]]),
-                                    xmin = 2060, xmax = 2100,
-                                    ymin = 30, ymax = 70)
-) + (pop_sizes[[3]] + ggtitle("CMCC projections") + annotation_custom(ggplotGrob(ext_years[[3]]),
-                                        xmin = 2060, xmax = 2100,
-                                        ymin = 30, ymax = 70) + 
-       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[3]])$y$limits[2]),
-         sec.axis = sec_axis(trans = ~., name = "Cr", 
-                                              breaks = NULL, labels = NULL))
-) + (pop_sizes[[10]] + annotation_custom(ggplotGrob(ext_years[[10]]),
-                                     xmin = 2060, xmax = 2100,
-                                     ymin = 150, ymax = 300)
-) + (pop_sizes[[8]] + annotation_custom(ggplotGrob(ext_years[[8]]),
-                                        xmin = 2060, xmax = 2100,
-                                        ymin = 150, ymax = 300) + 
-       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[8]])$y$limits[2]),
-                          sec.axis = sec_axis(trans = ~., name = "Hk", 
-                                              breaks = NULL, labels = NULL))
-) + (pop_sizes[[15]] + annotation_custom(ggplotGrob(ext_years[[15]]),
-                                        xmin = 2060, xmax = 2100,
-                                        ymin = 15, ymax = 35)
-) + (pop_sizes[[13]] + annotation_custom(ggplotGrob(ext_years[[13]]),
-                                        xmin = 2060, xmax = 2100,
-                                        ymin = 15, ymax = 35) + 
-       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[13]])$y$limits[2]),
-                          sec.axis = sec_axis(trans = ~., name = "Ks", 
-                                              breaks = NULL, labels = NULL))
-) +(pop_sizes[[20]] + annotation_custom(ggplotGrob(ext_years[[20]]),
-                                       xmin = 2060, xmax = 2100,
-                                       ymin = 25, ymax = 50)
-) +(pop_sizes[[18]] + annotation_custom(ggplotGrob(ext_years[[18]]),
-                                       xmin = 2060, xmax = 2100,
-                                       ymin = 25, ymax = 50) + 
-      scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[18]])$y$limits[2]),
-                         sec.axis = sec_axis(trans = ~., name = "Ru", 
-                                             breaks = NULL, labels = NULL))
-) + plot_layout(guides = "collect", ncol = 2, byrow = T)
-
-
 pop_size_all <- ggplot(ext %>%
                          filter(scenario != "rcp85")) +
   geom_line(aes(x = year,
@@ -361,11 +322,54 @@ pop_size_MS <- ggplot(ext %>%
   xlab("Simulation year") + ylab("Population size")
 
 
+
 ggsave(pop_size_all, filename = "results/plot_population_size_ext_simulation.png",
        width = 11, height = 8, units = "in", dpi = 400, type = "cairo")
 
 ggsave(pop_size_MS, filename = "results/plot_population_size_ext_simulation_MS.png",
        width = 7, height = 8, units = "in", dpi = 400, type = "cairo")
+
+
+
+
+MS_size_box <- (pop_sizes[[5]] + ggtitle("Historical climate") + annotation_custom(ggplotGrob(ext_years[[5]]),
+                                                                                   xmin = 2060, xmax = 2100,
+                                                                                   ymin = 30, ymax = 70)
+) + (pop_sizes[[3]] + ggtitle("CMCC projections") + annotation_custom(ggplotGrob(ext_years[[3]]),
+                                                                      xmin = 2060, xmax = 2100,
+                                                                      ymin = 30, ymax = 70) + 
+       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[3]])$y$limits[2]),
+                          sec.axis = sec_axis(trans = ~., name = "Cr", 
+                                              breaks = NULL, labels = NULL))
+) + (pop_sizes[[10]] + annotation_custom(ggplotGrob(ext_years[[10]]),
+                                         xmin = 2060, xmax = 2100,
+                                         ymin = 150, ymax = 300)
+) + (pop_sizes[[8]] + annotation_custom(ggplotGrob(ext_years[[8]]),
+                                        xmin = 2060, xmax = 2100,
+                                        ymin = 150, ymax = 300) + 
+       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[8]])$y$limits[2]),
+                          sec.axis = sec_axis(trans = ~., name = "Hk", 
+                                              breaks = NULL, labels = NULL))
+) + (pop_sizes[[15]] + annotation_custom(ggplotGrob(ext_years[[15]]),
+                                         xmin = 2060, xmax = 2100,
+                                         ymin = 15, ymax = 35)
+) + (pop_sizes[[13]] + annotation_custom(ggplotGrob(ext_years[[13]]),
+                                         xmin = 2060, xmax = 2100,
+                                         ymin = 15, ymax = 35) + 
+       scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[13]])$y$limits[2]),
+                          sec.axis = sec_axis(trans = ~., name = "Ks", 
+                                              breaks = NULL, labels = NULL))
+) +(pop_sizes[[20]] + annotation_custom(ggplotGrob(ext_years[[20]]),
+                                        xmin = 2060, xmax = 2100,
+                                        ymin = 25, ymax = 50)
+) +(pop_sizes[[18]] + annotation_custom(ggplotGrob(ext_years[[18]]),
+                                        xmin = 2060, xmax = 2100,
+                                        ymin = 25, ymax = 50) + 
+      scale_y_continuous(limits = c(0, layer_scales(pop_sizes[[18]])$y$limits[2]),
+                         sec.axis = sec_axis(trans = ~., name = "Ru", 
+                                             breaks = NULL, labels = NULL))
+) + plot_layout(guides = "collect", ncol = 2, byrow = T)
+
 
 ggsave(MS_size_box, filename = "results/plot_population_size_ext_box.png",
        width = 9, height = 11, units = "in", dpi = 400, type = "cairo")
@@ -377,6 +381,7 @@ ggsave(MS_size_box, filename = "results/plot_population_size_ext_box.png",
 ## --------------------------------------------------------------------
 
 df <- read.csv("data/Dracocephalum_with_vital_rates.csv") %>%
+  filter(year_t0 < 2020) %>%
   rowwise() %>%
   mutate(shading_t0 = ifelse(any(!is.na(c(herb_shading_t0, shrub_shading_t0))), 
                              sum(herb_shading_t0, shrub_shading_t0, na.rm = T),
@@ -523,6 +528,8 @@ ggsave("results/clim_seq_pet.png", clim_seq_pet,
        width = 7, height = 9)
 ggsave("results/clim_seq_tas.png", clim_seq_tas,
        width = 7, height = 9)
+
+
 ## --------------------------------------------------------------------
 ## Compare future climate mean, sd and autocorrelation
 ## --------------------------------------------------------------------
