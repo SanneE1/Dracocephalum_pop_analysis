@@ -5,6 +5,7 @@ CHELSA_data = "data/CHELSA_data.csv"
 lag = 24  # number of months prior to census to include
 
 source("R/functions_GAM.R")
+source("R/functions_cross_validation.R")
 
 ## Format dataframe:
 ### response & covariates and add climate variable as lagg since census in columns 
@@ -76,16 +77,19 @@ smooth_forms <- list(
   slope = "+ slope",
   rock = "+ rock",
   soil = "+ soil_depth",
+  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
   tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/3, by= tas_scaledcovar)',
   tas_slope = '+ te(lags, slope_m, k=lag/3, by= tas_scaledcovar)',
   tas_rock = '+ te(lags, rock_m, k=lag/3, by= tas_scaledcovar)',
   tas_soil = '+ te(lags, soil_m, k=lag/3, by= tas_scaledcovar)',
+  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
   pr8 = '+ s(lags, k=lag/3, by= pr_scaledcovar)',
   pr_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pr_scaledcovar)',
   pr_slope = '+ te(lags, slope_m, k=lag/3, by= pr_scaledcovar)',
   pr_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
   pr_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)',
+  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
   pet8 = '+ s(lags, k=lag/3, by= pet_scaledcovar)',
   pet_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pet_scaledcovar)',
   pet_slope = '+ te(lags, slope_m, k=lag/3, by= pet_scaledcovar)',
@@ -99,16 +103,19 @@ smooth_forms0 <- list(
   slope = "+ slope",
   rock = "+ rock",
   soil = "+ soil_depth",
-  tas8 = '+ s(lags, k=lag/5, by= tas_scaledcovar)',
+  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
+  tas5 = '+ s(lags, k=lag/5, by= tas_scaledcovar)',
   tas_tot = '+ te(lags, tot_shading_m, k=lag/5, by= tas_scaledcovar)',
   tas_slope = '+ te(lags, slope_m, k=lag/5, by= tas_scaledcovar)',
   tas_rock = '+ te(lags, rock_m, k=lag/5, by= tas_scaledcovar)',
   tas_soil = '+ te(lags, soil_m, k=lag/5, by= tas_scaledcovar)',
+  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
   pr8 = '+ s(lags, k=lag/5, by= pr_scaledcovar)',
   pr_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pr_scaledcovar)',
   pr_slope = '+ te(lags, slope_m, k=lag/5, by= pr_scaledcovar)',
   pr_rock = '+ te(lags, rock_m, k=lag/5, by= pr_scaledcovar)',
   pr_soil = '+ te(lags, soil_m, k=lag/5, by= pr_scaledcovar)',
+  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
   pet8 = '+ s(lags, k=lag/5, by= pet_scaledcovar)',
   pet_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pet_scaledcovar)',
   pet_slope = '+ te(lags, slope_m, k=lag/5, by= pet_scaledcovar)',
@@ -135,11 +142,22 @@ surv_mods <- lapply(smooth_forms, function(x)
       gamma=1.2)
 )
 
+
 surv_aic <- bbmle::AICtab(surv_mods,
-                          weights = T, base = T, sort = T)
+                          weights = T, base = T) %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
 
+surv_cv <- sapply(surv_mods, gam.crossvalidation) %>% 
+  t %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
 
-summary(surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
+surv_aic.cv <- left_join(surv_aic, surv_cv) %>% 
+  arrange(dAIC) %>%
+  rename(model = rowname)
+
+summary(surv_mods[[as.symbol(attributes(surv_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
 # if(attributes(surv_aic)$row.names[1] == "pet_tot") {
 #   plot_spline_coeff(best_model = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
@@ -171,19 +189,30 @@ growth_mods <- lapply(smooth_forms, function(x)
 
 
 growth_aic <- bbmle::AICtab(growth_mods,
-                            weights = T, base = T, sort = T)
+                            weights = T, base = T) %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+growth_cv <- sapply(growth_mods, gam.crossvalidation) %>% 
+  t %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+growth_aic.cv <- left_join(growth_aic, growth_cv) %>% 
+  arrange(dAIC) %>%
+  rename(model = rowname)
 
 
-summary(growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
+summary(growth_mods[[as.symbol(attributes(growth_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
 # if(attributes(growth_aic)$row.names[1] == "pr_tot") {
 #   ## Taking the model with the lowest AIC that doesn't use PET  
-  # plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
-  #                   lag = lag,
-  #                   pr = T, shade = T,
-  #                   vital_rate = "growth",
-  #                   save_plot = F
-  # )
+# plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
+#                   lag = lag,
+#                   pr = T, shade = T,
+#                   vital_rate = "growth",
+#                   save_plot = F
+# )
 # } else {
 #   warning("Different growth model than expected with the lowest AIC - Plotting of spline skipped")
 # }
@@ -210,10 +239,21 @@ flowp_mods <- lapply(smooth_forms0, function(x)
 
 
 flowp_aic <- bbmle::AICtab(flowp_mods,
-                           weights = T, base = T, sort = T)
+                           weights = T, base = T) %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+flowp_cv <- sapply(flowp_mods, gam.crossvalidation) %>% 
+  t %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+flowp_aic.cv <- left_join(flowp_aic, flowp_cv) %>% 
+  arrange(dAIC) %>%
+  rename(model = rowname)
 
 
-summary(flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
+summary(flowp_mods[[as.symbol(attributes(flowp_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
 
 
 # if(attributes(flowp_aic)$row.names[1] == "pet_tot") {
@@ -247,10 +287,21 @@ abp_mods <- lapply(smooth_forms0, function(x)
 )
 
 abp_aic <- bbmle::AICtab(abp_mods,
-                         weights = T, base = T, sort = T)
+                         weights = T, base = T) %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+abp_cv <- sapply(abp_mods, gam.crossvalidation) %>% 
+  t %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+abp_aic.cv <- left_join(abp_aic, abp_cv) %>% 
+  arrange(dAIC) %>%
+  rename(model = rowname)
 
 
-summary(abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]])   
+summary(abp_mods[[as.symbol(attributes(abp_aic.cv)$row.names[1])]])   
 
 
 # if(attributes(abp_aic)$row.names[1] == "pr_tot") {
@@ -284,10 +335,22 @@ seed_mods <- lapply(smooth_forms0, function(x)
 )
 
 seed_aic <- bbmle::AICtab(seed_mods,
-                          weights = T, base = T, sort = T)
+                          weights = T, base = T) %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+seed_cv <- sapply(seed_mods, gam.crossvalidation) %>% 
+  t %>%
+  as.data.frame %>% 
+  tibble::rownames_to_column
+
+seed_aic.cv <- left_join(seed_aic, seed_cv) %>% 
+  arrange(dAIC) %>%
+  rename(model = rowname)
 
 
-summary(seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]])   
+
+summary(seed_mods[[as.symbol(attributes(seed_aic.cv)$row.names[1])]])   
 
 
 # if(attributes(seed_aic)$row.names[1] == "pr_tot") {
@@ -310,15 +373,22 @@ saveRDS(list(surv = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
              n_seeds = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]]),
         file = "results/rds/VR_FLM.rds")
 
+saveRDS(list(surv = surv_mods,
+             growth = growth_mods,
+             flower_p = flowp_mods,
+             abort_p = abp_mods,
+             n_seeds = seed_mods),
+        file = "results/rds/VR_FLM_all.rds")
+
 saveRDS(
   list(
-    surv = surv_aic,
-               growth = growth_aic,
-               flowp = flowp_aic,
-               abp = abp_aic,
-               seeds = seed_aic
+    surv = surv_aic.cv,
+    growth = growth_aic.cv,
+    flowp = flowp_aic.cv,
+    abp = abp_aic.cv,
+    seeds = seed_aic.cv
   ),
-  file = "results/rds/VR_mod_AIC.rds"
+  file = "results/rds/VR_mod_AIC_CV.rds"
 )
 
 
