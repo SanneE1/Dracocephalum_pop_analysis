@@ -123,226 +123,181 @@ smooth_forms0 <- list(
   pet_soil = '+ te(lags, soil_m, k=lag/5, by= pr_scaledcovar)'
 )
 
+VR_FLM_all <- readRDS("results/rds/VR_FLM_all.rds")
+
+surv_mods <- VR_FLM_all$surv
+growth_mods <- VR_FLM_all$growth
+flowp_mods <- VR_FLM_all$flower_p
+abp_mods <- VR_FLM_all$abort_p
+seed_mods <- VR_FLM_all$n_seeds
+
 ## -------------------------------------------------------
 ## Survival
 ## -------------------------------------------------------
 
 
-# Basemodel
-base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# # Basemodel
+# base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# 
+# #FLM models
+# 
+# surv_mods <- lapply(smooth_forms, function(x)
+#   
+#   gam(formula(paste(base_surv, x)),
+#       data=data_t1 ,
+#       family = binomial(link = "logit"),
+#       method="GCV.Cp", 
+#       gamma=1.2)
+# )
 
-#FLM models
 
-surv_mods <- lapply(smooth_forms, function(x)
-  
-  gam(formula(paste(base_surv, x)),
-      data=data_t1 ,
-      family = binomial(link = "logit"),
-      method="GCV.Cp", 
-      gamma=1.2)
-)
+surv_aic <- bbmle::AICtab(surv_mods, weights = T, base = T) %>%
+  as.data.frame %>%
+  rownames_to_column
 
-
-surv_aic <- bbmle::AICtab(surv_mods,
-                          weights = T, base = T) %>%
-  as.data.frame %>% 
-  tibble::rownames_to_column
-
-surv_cv <- sapply(surv_mods, gam.crossvalidation) %>% 
+surv_cv <- sapply(surv_mods, gam.crossvalidation)  %>% 
   t %>%
-  as.data.frame %>% 
-  tibble::rownames_to_column
+  as.data.frame %>%
+  rownames_to_column
 
 surv_aic.cv <- left_join(surv_aic, surv_cv) %>% 
   arrange(dAIC) %>%
   rename(model = rowname)
 
-summary(surv_mods[[as.symbol(attributes(surv_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
-
-# if(attributes(surv_aic)$row.names[1] == "pet_tot") {
-#   plot_spline_coeff(best_model = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
-#                     lag = lag,
-#                     pet = T, shade = T,
-#                     vital_rate = "surv",
-#                     save_plot = T
-#   )
-# } else {
-#   warning("Different survival model than expected with the lowest AIC - Plotting of spline skipped")
-# }
 
 ## -------------------------------------------------------
 ## Growth
 ## -------------------------------------------------------
 
-# Basemodel
-base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-
-#FLM models
-
-growth_mods <- lapply(smooth_forms, function(x)
-  
-  gam(formula(paste(base_growth, x)),
-      data=data_t1 %>%
-        filter(survival_t1 == 1),
-      method="GCV.Cp",gamma=1.2)
-)
+# # Basemodel
+# base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# 
+# #FLM models
+# 
+# growth_mods <- lapply(smooth_forms, function(x)
+#   
+#   gam(formula(paste(base_growth, x)),
+#       data=data_t1 %>%
+#         filter(survival_t1 == 1),
+#       method="GCV.Cp",gamma=1.2)
+# )
 
 
 growth_aic <- bbmle::AICtab(growth_mods,
                             weights = T, base = T) %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 growth_cv <- sapply(growth_mods, gam.crossvalidation) %>% 
   t %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 growth_aic.cv <- left_join(growth_aic, growth_cv) %>% 
   arrange(dAIC) %>%
   rename(model = rowname)
 
 
-summary(growth_mods[[as.symbol(attributes(growth_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
-
-# if(attributes(growth_aic)$row.names[1] == "pr_tot") {
-#   ## Taking the model with the lowest AIC that doesn't use PET  
-# plot_spline_coeff(best_model = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
-#                   lag = lag,
-#                   pr = T, shade = T,
-#                   vital_rate = "growth",
-#                   save_plot = F
-# )
-# } else {
-#   warning("Different growth model than expected with the lowest AIC - Plotting of spline skipped")
-# }
-
 
 ## -------------------------------------------------------
 ## Flower probability
 ## -------------------------------------------------------
 
-# Basemodel
-base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-
-#FLM models
-
-flowp_mods <- lapply(smooth_forms0, function(x)
-  
-  gam(formula(paste(base_flowp, x)),
-      data=data_t0 ,
-      family = binomial(link = "logit"),
-      method="GCV.Cp", 
-      gamma=1.2)
-)
+# # Basemodel
+# base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# 
+# #FLM models
+# 
+# flowp_mods <- lapply(smooth_forms0, function(x)
+#   
+#   gam(formula(paste(base_flowp, x)),
+#       data=data_t0 ,
+#       family = binomial(link = "logit"),
+#       method="GCV.Cp", 
+#       gamma=1.2)
+# )
 
 
 
 flowp_aic <- bbmle::AICtab(flowp_mods,
                            weights = T, base = T) %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 flowp_cv <- sapply(flowp_mods, gam.crossvalidation) %>% 
   t %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 flowp_aic.cv <- left_join(flowp_aic, flowp_cv) %>% 
   arrange(dAIC) %>%
   rename(model = rowname)
 
 
-summary(flowp_mods[[as.symbol(attributes(flowp_aic.cv)$row.names[1])]])   ## This eval(as.symbol) is maybe a bit much but will let this analysis run in case input data or something changes the resulting best model
-
-
-# if(attributes(flowp_aic)$row.names[1] == "pet_tot") {
-#   plot_spline_coeff(best_model = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
-#                     lag = lag,
-#                     pet = T, shade = T,
-#                     vital_rate = "flowp",
-#                     save_plot = T
-#   )
-# } else {
-#   warning("Different flowp model than expected with the lowest AIC - Plotting of spline skipped")
-# }
 
 ## -------------------------------------------------------
 ## Abortion probability
 ## -------------------------------------------------------
 
-# Basemodel
-base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-
-#FLM models
-
-abp_mods <- lapply(smooth_forms0, function(x)
-  
-  gam(formula(paste(base_abp, x)),
-      data=data_t0 %>% 
-        filter(flower_p_t0 == 1),
-      family = binomial(link = "logit"),
-      method="GCV.Cp",
-      gamma=1.2)
-)
+# # Basemodel
+# base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# 
+# #FLM models
+# 
+# abp_mods <- lapply(smooth_forms0, function(x)
+#   
+#   gam(formula(paste(base_abp, x)),
+#       data=data_t0 %>% 
+#         filter(flower_p_t0 == 1),
+#       family = binomial(link = "logit"),
+#       method="GCV.Cp",
+#       gamma=1.2)
+# )
 
 abp_aic <- bbmle::AICtab(abp_mods,
                          weights = T, base = T) %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 abp_cv <- sapply(abp_mods, gam.crossvalidation) %>% 
   t %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 abp_aic.cv <- left_join(abp_aic, abp_cv) %>% 
   arrange(dAIC) %>%
   rename(model = rowname)
 
 
-summary(abp_mods[[as.symbol(attributes(abp_aic.cv)$row.names[1])]])   
-
-
-# if(attributes(abp_aic)$row.names[1] == "pr_tot") {
-#   plot_spline_coeff(best_model = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
-#                     lag = lag,
-#                     pr = T, shade = T,
-#                     vital_rate = "abortion prob.",
-#                     save_plot = T
-#   )
-# } else {
-#   warning("Different abortion probability model than expected with the lowest AIC - Plotting of spline skipped")
-# }
 
 ## -------------------------------------------------------
 ## Seed numbers
 ## -------------------------------------------------------
 
-# Basemodel
-base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-
-#FLM models
-
-seed_mods <- lapply(smooth_forms0, function(x)
-  
-  gam(formula(paste(base_seed, x)),
-      data=data_t0 %>% 
-        filter(flower_p_t0 == 1 & seed_p_t0 == 1),
-      family = Gamma(link = "log"),
-      method="GCV.Cp",
-      gamma=1.2)
-)
+# # Basemodel
+# base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+# 
+# #FLM models
+# 
+# seed_mods <- lapply(smooth_forms0, function(x)
+#   
+#   gam(formula(paste(base_seed, x)),
+#       data=data_t0 %>% 
+#         filter(flower_p_t0 == 1 & seed_p_t0 == 1),
+#       family = Gamma(link = "log"),
+#       method="GCV.Cp",
+#       gamma=1.2)
+# )
 
 seed_aic <- bbmle::AICtab(seed_mods,
                           weights = T, base = T) %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
-seed_cv <- sapply(seed_mods, gam.crossvalidation) %>% 
+seed_cv <- sapply(seed_mods,gam.crossvalidation) %>% 
   t %>%
   as.data.frame %>% 
-  tibble::rownames_to_column
+  rownames_to_column
 
 seed_aic.cv <- left_join(seed_aic, seed_cv) %>% 
   arrange(dAIC) %>%
@@ -350,27 +305,16 @@ seed_aic.cv <- left_join(seed_aic, seed_cv) %>%
 
 
 
-summary(seed_mods[[as.symbol(attributes(seed_aic.cv)$row.names[1])]])   
+## -------------------------------------------------------
+## Save results
+## -------------------------------------------------------
 
 
-# if(attributes(seed_aic)$row.names[1] == "pr_tot") {
-#   plot_spline_coeff(best_model = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]],
-#                     lag = lag,
-#                     pet = T, shade = T,
-#                     vital_rate = "seed production",
-#                     save_plot = T
-#   )
-# } else {
-#   warning("Different seed production model than expected with the lowest AIC - Plotting of spline skipped")
-# }
-
-
-
-saveRDS(list(surv = surv_mods[[as.symbol(attributes(surv_aic)$row.names[1])]],
-             growth = growth_mods[[as.symbol(attributes(growth_aic)$row.names[1])]],
-             flower_p = flowp_mods[[as.symbol(attributes(flowp_aic)$row.names[1])]],
-             abort_p = abp_mods[[as.symbol(attributes(abp_aic)$row.names[1])]],
-             n_seeds = seed_mods[[as.symbol(attributes(seed_aic)$row.names[1])]]),
+saveRDS(list(surv = surv_mods[[as.symbol(surv_aic.cv$model[1])]],
+             growth = growth_mods[[as.symbol(growth_aic.cv$model[1])]],
+             flower_p = flowp_mods[[as.symbol(flowp_aic.cv$model[1])]],
+             abort_p = abp_mods[[as.symbol(abp_aic.cv$model[1])]],
+             n_seeds = seed_mods[[as.symbol(seed_aic.cv$model[1])]]),
         file = "results/rds/VR_FLM.rds")
 
 saveRDS(list(surv = surv_mods,
@@ -391,5 +335,22 @@ saveRDS(
   file = "results/rds/VR_mod_AIC_CV.rds"
 )
 
+## Check if crossvalidation would select a different model from AIC
+surv_aic.cv$model[which.min(surv_aic.cv$AIC)]
+surv_aic.cv$model[which.min(surv_aic.cv$RMSE)]
 
-rm(list = ls())
+growth_aic.cv$model[which.min(growth_aic.cv$AIC)]
+growth_aic.cv$model[which.min(growth_aic.cv$RMSE)]
+
+flowp_aic.cv$model[which.min(flowp_aic.cv$AIC)]
+flowp_aic.cv$model[which.min(flowp_aic.cv$RMSE)]
+
+abp_aic.cv$model[which.min(abp_aic.cv$AIC)]
+abp_aic.cv$model[which.min(abp_aic.cv$RMSE)]
+
+seed_aic.cv$model[which.min(seed_aic.cv$AIC)]
+seed_aic.cv$model[which.min(seed_aic.cv$RMSE)]
+
+
+
+
