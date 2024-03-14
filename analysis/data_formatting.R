@@ -62,8 +62,7 @@ source("analysis/exploratory_plots.R")
 data <- raw_data_long_format %>%
   calculate_av_values(.) %>%
   add_t1(.) %>%
-  add_tm1(.) %>%
-  add_tm2(.) %>%
+  add_tm12(.) %>%
   dplyr::select(plant_ID, population, year_t0, contains("soil"), "rock", "slope", contains("tm2"), contains("tm1"), contains("t0"), contains("t1")) %>%
   rowwise() %>%
   mutate(survival_t1 = ifelse(!is.na(stage_t0) & stage_t1 != "dead", 1, 

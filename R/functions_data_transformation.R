@@ -25,21 +25,16 @@ add_t1 <- function(data) {
 }
 
 ## function to add shading in t-1
-add_tm1 <- function(data) {
-  d1 <- data %>% dplyr::select(plant_ID, population, year_t0, contains("shading")) %>%
-    mutate(year_t0 = year_t0 + 1)
-  names(d1)[4:5] <- gsub(x = names(d1)[4:5], pattern = "_t0", replacement = "_tm1")  
-  
-  left_join(data, d1)
-}
-
-## function to add shading in t-2
-add_tm2 <- function(data) {
+add_tm12 <- function(data) {
   d1 <- data %>% dplyr::select(plant_ID, population, year_t0, contains("shading")) %>%
     mutate(year_t0 = year_t0 + 2)
-  names(d1)[4:5] <- gsub(x = names(d1)[4:5], pattern = "_t0", replacement = "_tm2")  
+  names(d1)[4:5] <- gsub(x = names(d1)[4:5], pattern = "_t0", replacement = "_tm2")
+  names(d1)[6:7] <- gsub(x = names(d1)[6:7], pattern = "_t1", replacement = "_tm1")  
+  
   
   left_join(data, d1)
-}
+
+  }
+
 
 
