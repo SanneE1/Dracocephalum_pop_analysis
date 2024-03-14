@@ -123,39 +123,41 @@ smooth_forms0 <- list(
   pet_soil = '+ te(lags, soil_m, k=lag/5, by= pr_scaledcovar)'
 )
 
-VR_FLM_all <- readRDS("results/rds/VR_FLM_all.rds")
-
-surv_mods <- VR_FLM_all$surv
-growth_mods <- VR_FLM_all$growth
-flowp_mods <- VR_FLM_all$flower_p
-abp_mods <- VR_FLM_all$abort_p
-seed_mods <- VR_FLM_all$n_seeds
+# VR_FLM_all <- readRDS("results/rds/VR_FLM_all.rds")
+# 
+# surv_mods <- VR_FLM_all$surv
+# growth_mods <- VR_FLM_all$growth
+# flowp_mods <- VR_FLM_all$flower_p
+# abp_mods <- VR_FLM_all$abort_p
+# seed_mods <- VR_FLM_all$n_seeds
 
 ## -------------------------------------------------------
 ## Survival
 ## -------------------------------------------------------
 
 
-# # Basemodel
-# base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-# 
-# #FLM models
-# 
-# surv_mods <- lapply(smooth_forms, function(x)
-#   
-#   gam(formula(paste(base_surv, x)),
-#       data=data_t1 ,
-#       family = binomial(link = "logit"),
-#       method="GCV.Cp", 
-#       gamma=1.2)
-# )
+# Basemodel
+base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+#FLM models
+
+surv_mods <- lapply(smooth_forms, function(x)
+
+  gam(formula(paste(base_surv, x)),
+      data=data_t1 ,
+      family = binomial(link = "logit"),
+      method="GCV.Cp",
+      gamma=1.2)
+)
 
 
 surv_aic <- bbmle::AICtab(surv_mods, weights = T, base = T) %>%
   as.data.frame %>%
   rownames_to_column
 
-surv_cv <- sapply(surv_mods, gam.crossvalidation)  %>% 
+surv_cv <- sapply(surv_mods, function(x) gam.crossvalidation(x, 
+                              data = data_t1 %>% filter(!is.na(survival_t1)), 
+                              response_column = "survival_t1"))  %>% 
   t %>%
   as.data.frame %>%
   rownames_to_column
@@ -169,18 +171,18 @@ surv_aic.cv <- left_join(surv_aic, surv_cv) %>%
 ## Growth
 ## -------------------------------------------------------
 
-# # Basemodel
-# base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-# 
-# #FLM models
-# 
-# growth_mods <- lapply(smooth_forms, function(x)
-#   
-#   gam(formula(paste(base_growth, x)),
-#       data=data_t1 %>%
-#         filter(survival_t1 == 1),
-#       method="GCV.Cp",gamma=1.2)
-# )
+# Basemodel
+base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+#FLM models
+
+growth_mods <- lapply(smooth_forms, function(x)
+
+  gam(formula(paste(base_growth, x)),
+      data=data_t1 %>%
+        filter(survival_t1 == 1),
+      method="GCV.Cp",gamma=1.2)
+)
 
 
 growth_aic <- bbmle::AICtab(growth_mods,
@@ -188,7 +190,9 @@ growth_aic <- bbmle::AICtab(growth_mods,
   as.data.frame %>% 
   rownames_to_column
 
-growth_cv <- sapply(growth_mods, gam.crossvalidation) %>% 
+growth_cv <- sapply(growth_mods, function(x) gam.crossvalidation(x, 
+                                  data = data_t1 %>% filter(survival_t1 == 1), 
+                                  response_column = "ln_stems_t1")) %>% 
   t %>%
   as.data.frame %>% 
   rownames_to_column
@@ -203,19 +207,19 @@ growth_aic.cv <- left_join(growth_aic, growth_cv) %>%
 ## Flower probability
 ## -------------------------------------------------------
 
-# # Basemodel
-# base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-# 
-# #FLM models
-# 
-# flowp_mods <- lapply(smooth_forms0, function(x)
-#   
-#   gam(formula(paste(base_flowp, x)),
-#       data=data_t0 ,
-#       family = binomial(link = "logit"),
-#       method="GCV.Cp", 
-#       gamma=1.2)
-# )
+# Basemodel
+base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+#FLM models
+
+flowp_mods <- lapply(smooth_forms0, function(x)
+
+  gam(formula(paste(base_flowp, x)),
+      data=data_t0 ,
+      family = binomial(link = "logit"),
+      method="GCV.Cp",
+      gamma=1.2)
+)
 
 
 
@@ -224,7 +228,9 @@ flowp_aic <- bbmle::AICtab(flowp_mods,
   as.data.frame %>% 
   rownames_to_column
 
-flowp_cv <- sapply(flowp_mods, gam.crossvalidation) %>% 
+flowp_cv <- sapply(flowp_mods, function(x) gam.crossvalidation(x, 
+                                data = data_t0, 
+                                response_column = "flower_p_t0")) %>% 
   t %>%
   as.data.frame %>% 
   rownames_to_column
@@ -239,27 +245,29 @@ flowp_aic.cv <- left_join(flowp_aic, flowp_cv) %>%
 ## Abortion probability
 ## -------------------------------------------------------
 
-# # Basemodel
-# base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-# 
-# #FLM models
-# 
-# abp_mods <- lapply(smooth_forms0, function(x)
-#   
-#   gam(formula(paste(base_abp, x)),
-#       data=data_t0 %>% 
-#         filter(flower_p_t0 == 1),
-#       family = binomial(link = "logit"),
-#       method="GCV.Cp",
-#       gamma=1.2)
-# )
+# Basemodel
+base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+#FLM models
+
+abp_mods <- lapply(smooth_forms0, function(x)
+
+  gam(formula(paste(base_abp, x)),
+      data=data_t0 %>%
+        filter(flower_p_t0 == 1),
+      family = binomial(link = "logit"),
+      method="GCV.Cp",
+      gamma=1.2)
+)
 
 abp_aic <- bbmle::AICtab(abp_mods,
                          weights = T, base = T) %>%
   as.data.frame %>% 
   rownames_to_column
 
-abp_cv <- sapply(abp_mods, gam.crossvalidation) %>% 
+abp_cv <- sapply(abp_mods, function(x) gam.crossvalidation(x, 
+                            data = data_t0 %>% filter(flower_p_t0 == 1), 
+                            response_column = "seed_p_t0")) %>% 
   t %>%
   as.data.frame %>% 
   rownames_to_column
@@ -274,27 +282,29 @@ abp_aic.cv <- left_join(abp_aic, abp_cv) %>%
 ## Seed numbers
 ## -------------------------------------------------------
 
-# # Basemodel
-# base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-# 
-# #FLM models
-# 
-# seed_mods <- lapply(smooth_forms0, function(x)
-#   
-#   gam(formula(paste(base_seed, x)),
-#       data=data_t0 %>% 
-#         filter(flower_p_t0 == 1 & seed_p_t0 == 1),
-#       family = Gamma(link = "log"),
-#       method="GCV.Cp",
-#       gamma=1.2)
-# )
+# Basemodel
+base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+#FLM models
+
+seed_mods <- lapply(smooth_forms0, function(x)
+
+  gam(formula(paste(base_seed, x)),
+      data=data_t0 %>%
+        filter(flower_p_t0 == 1 & seed_p_t0 == 1),
+      family = Gamma(link = "log"),
+      method="GCV.Cp",
+      gamma=1.2)
+)
 
 seed_aic <- bbmle::AICtab(seed_mods,
                           weights = T, base = T) %>%
   as.data.frame %>% 
   rownames_to_column
 
-seed_cv <- sapply(seed_mods,gam.crossvalidation) %>% 
+seed_cv <- sapply(seed_mods, function(x) gam.crossvalidation(x, 
+                               data = data_t0 %>% filter(flower_p_t0 == 1 & seed_p_t0 == 1), 
+                               response_column = "est_seed_n_t0")) %>% 
   t %>%
   as.data.frame %>% 
   rownames_to_column

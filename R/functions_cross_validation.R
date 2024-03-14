@@ -1,64 +1,69 @@
 # Function for cross validation of the GAM models. Based on the gamclass::CVgam but adapted as that function
 # doesn't allow specification of different response distributions
 
-gam.crossvalidation <- function(mod, method = "GCV.Cp", gamma = 1.2, nfold = 10, seed = 1503){
+gam.crossvalidation <- function(mod, data, response_column, method = "GCV.Cp", gamma = 1.2, seed = 1503){
   
-  data <- mod$model %>%
-    mutate(population = as.factor(population))
+  data <- data %>%
+    mutate(population = as.factor(population)) %>% 
+    as.data.frame
   formula_mod <- formula(mod)
   family_mod <- mod$family$family
   
   set.seed(seed)
   
-  cvparts <- sample(1:nfold, nrow(data), replace = TRUE)
-  folds <- unique(cvparts)
+  years <- unique(data$year_t0)
   
-  pred_df <- matrix(0, nrow = nrow(data), ncol = nfold)
+  pred_df <- matrix(0, nrow = nrow(data), ncol = length(years))
   predicted <- numeric(nrow(data))
 
   rmse_df <- data.frame(
-    nfold = c(1:nfold),
-    RMSE_train = rep(0,nfold),
-    RMSE_test = rep(0,nfold)
+    year_left_out = c(1:length(years)),
+    RMSE_train = rep(0,length(years)),
+    RMSE_test = rep(0,length(years))
   )
   
-  for(i in folds) {
-    trainrows <- cvparts != i
-    testrows <- cvparts == i
+  for(i in c(1:length(years))) {
+    trainrows <- data$year_t0 != years[i]
+    testrows <- data$year_t0 == years[i]
     
-    # Extract the original data used to fit the model
+    # Create training data
     data_train <- data[trainrows, ]
     
-    possibleError <- tryCatch(
+    # possibleError <- tryCatch(
     # Fit the updated model with original family, method, and gamma
     traingam <- gam(formula = formula_mod,
-                    data = data[trainrows,],
+                    data = data_train,
                     family = family_mod,
                     method = method,
-                    gamma = gamma),
-    error=function(e) e)
+                    gamma = gamma) #,
+    # error=function(e) e)
     
-    if(inherits(possibleError, "error")) next
+    # if(inherits(possibleError, "error")) next
     
     # Predict on full data (so I can retrieve RMSE from both train and test dataset)
     pred_df[,i] <- predict(object = traingam, newdata = data, select = T, type = "response")
     
-    # Get RMSE for train and test data
-    rmse_df$RMSE_train[i] <- caret::RMSE(pred_df[trainrows,i], data[trainrows,1])
-    rmse_df$RMSE_test[i] <- caret::RMSE(pred_df[testrows,i], data[testrows,1])
+    a <- data_train %>% select(ln_stems_t0, population, year_t0, lags, tot_shading_m, pr_scaledcovar) %>%
+      filter(complete.cases(.))
     
-    
-    # Save predicted test data to seperate dataframe for overal RMSE
+    # Save predicted test data to separate dataframe for overall RMSE
     predicted[testrows] <- pred_df[testrows,i]
+    
+    not_na <- !is.na(pred_df[,i])
+    
+    # Get RMSE for train and test data
+    rmse_df$RMSE_train[i] <- caret::RMSE(pred_df[which(trainrows & not_na),i], data[which(trainrows & not_na), response_column])
+    rmse_df$RMSE_test[i] <- caret::RMSE(pred_df[which(testrows & not_na),i], data[which(testrows & not_na), response_column])
+    
     
   }
   
   
   
   df <- data.frame(
-    RMSE = caret::RMSE(predicted, data[,1]),
+    RMSE = caret::RMSE(predicted[!is.na(predicted)], data[!is.na(predicted),response_column]),
     RMSE_train = mean(rmse_df$RMSE_train),
-    RMSE_tests = mean(rmse_df$RMSE_test),
+    RMSE_tests = mean(rmse_df$RMSE_test, na.rm = T),
     train = I(list(rmse_df$RMSE_train)),
     test = I(list(rmse_df$RMSE_test))
     )
