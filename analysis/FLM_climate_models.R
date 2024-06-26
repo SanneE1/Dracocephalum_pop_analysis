@@ -1,3 +1,7 @@
+library(tidyverse)
+library(lme4)
+library(mgcv)
+
 ### FLM climate model for Growth
 
 data_for_modeling = "data/Dracocephalum_with_vital_rates.csv"
@@ -71,100 +75,30 @@ data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth']
 
 
 
-smooth_forms <- list(
-  null = "",
-  tot = "+ tot_shading_t0",
-  slope = "+ slope",
-  rock = "+ rock",
-  soil = "+ soil_depth",
-  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
-  tas8 = '+ s(lags, k=lag/3, by= tas_scaledcovar)',
-  tas_tot = '+ te(lags, tot_shading_m, k=lag/3, by= tas_scaledcovar)',
-  tas_slope = '+ te(lags, slope_m, k=lag/3, by= tas_scaledcovar)',
-  tas_rock = '+ te(lags, rock_m, k=lag/3, by= tas_scaledcovar)',
-  tas_soil = '+ te(lags, soil_m, k=lag/3, by= tas_scaledcovar)',
-  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
-  pr8 = '+ s(lags, k=lag/3, by= pr_scaledcovar)',
-  pr_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pr_scaledcovar)',
-  pr_slope = '+ te(lags, slope_m, k=lag/3, by= pr_scaledcovar)',
-  pr_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
-  pr_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)',
-  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
-  pet8 = '+ s(lags, k=lag/3, by= pet_scaledcovar)',
-  pet_tot = '+ te(lags, tot_shading_m, k=lag/3, by= pet_scaledcovar)',
-  pet_slope = '+ te(lags, slope_m, k=lag/3, by= pet_scaledcovar)',
-  pet_rock = '+ te(lags, rock_m, k=lag/3, by= pr_scaledcovar)',
-  pet_soil = '+ te(lags, soil_m, k=lag/3, by= pr_scaledcovar)'
-)
-
-smooth_forms0 <- list(
-  null = "",
-  tot = "+ tot_shading_t0",
-  slope = "+ slope",
-  rock = "+ rock",
-  soil = "+ soil_depth",
-  tas24 = '+ s(lags, k=lag, by= tas_scaledcovar)',
-  tas5 = '+ s(lags, k=lag/5, by= tas_scaledcovar)',
-  tas_tot = '+ te(lags, tot_shading_m, k=lag/5, by= tas_scaledcovar)',
-  tas_slope = '+ te(lags, slope_m, k=lag/5, by= tas_scaledcovar)',
-  tas_rock = '+ te(lags, rock_m, k=lag/5, by= tas_scaledcovar)',
-  tas_soil = '+ te(lags, soil_m, k=lag/5, by= tas_scaledcovar)',
-  pr24 = '+ s(lags, k=lag, by= pr_scaledcovar)',
-  pr8 = '+ s(lags, k=lag/5, by= pr_scaledcovar)',
-  pr_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pr_scaledcovar)',
-  pr_slope = '+ te(lags, slope_m, k=lag/5, by= pr_scaledcovar)',
-  pr_rock = '+ te(lags, rock_m, k=lag/5, by= pr_scaledcovar)',
-  pr_soil = '+ te(lags, soil_m, k=lag/5, by= pr_scaledcovar)',
-  pet24 = '+ s(lags, k=lag, by= pet_scaledcovar)',
-  pet8 = '+ s(lags, k=lag/5, by= pet_scaledcovar)',
-  pet_tot = '+ te(lags, tot_shading_m, k=lag/5, by= pet_scaledcovar)',
-  pet_slope = '+ te(lags, slope_m, k=lag/5, by= pet_scaledcovar)',
-  pet_rock = '+ te(lags, rock_m, k=lag/5, by= pr_scaledcovar)',
-  pet_soil = '+ te(lags, soil_m, k=lag/5, by= pr_scaledcovar)'
-)
-
-# VR_FLM_all <- readRDS("results/rds/VR_FLM_all.rds")
-# 
-# surv_mods <- VR_FLM_all$surv
-# growth_mods <- VR_FLM_all$growth
-# flowp_mods <- VR_FLM_all$flower_p
-# abp_mods <- VR_FLM_all$abort_p
-# seed_mods <- VR_FLM_all$n_seeds
-
 ## -------------------------------------------------------
 ## Survival
 ## -------------------------------------------------------
 
 
 # Basemodel
-base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
+s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
+s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth" 
 
 #FLM models
 
-surv_mods <- lapply(smooth_forms, function(x)
-
-  gam(formula(paste(base_surv, x)),
+surv_mod <- gam(as.formula(base_surv),
       data=data_t1 ,
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.2)
-)
+      gamma=1.4,
+      select = T)
 
 
-surv_aic <- bbmle::AICtab(surv_mods, weights = T, base = T) %>%
-  as.data.frame %>%
-  rownames_to_column
-
-surv_cv <- sapply(surv_mods, function(x) gam.crossvalidation(x, 
-                              data = data_t1 %>% filter(!is.na(survival_t1)), 
-                              response_column = "survival_t1"))  %>% 
-  t %>%
-  as.data.frame %>%
-  rownames_to_column
-
-surv_aic.cv <- left_join(surv_aic, surv_cv) %>% 
-  arrange(dAIC) %>%
-  rename(model = rowname)
+plot_spline_coeff(best_model = surv_mod, tas = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = surv_mod, pr = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = surv_mod, pet = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = surv_mod, shade = T, vital_rate = "Survival")
 
 
 ## -------------------------------------------------------
@@ -172,34 +106,25 @@ surv_aic.cv <- left_join(surv_aic, surv_cv) %>%
 ## -------------------------------------------------------
 
 # Basemodel
-base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
+s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
+s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-growth_mods <- lapply(smooth_forms, function(x)
-
-  gam(formula(paste(base_growth, x)),
+growth_mod <- gam(as.formula(base_growth),
       data=data_t1 %>%
         filter(survival_t1 == 1),
-      method="GCV.Cp",gamma=1.2)
-)
+      method="GCV.Cp",
+      gamma=1.4,
+      select = T)
 
 
-growth_aic <- bbmle::AICtab(growth_mods,
-                            weights = T, base = T) %>%
-  as.data.frame %>% 
-  rownames_to_column
+plot_spline_coeff(best_model = growth_mod, tas = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = growth_mod, pr = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = growth_mod, pet = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = growth_mod, shade = T, vital_rate = "Survival")
 
-growth_cv <- sapply(growth_mods, function(x) gam.crossvalidation(x, 
-                                  data = data_t1 %>% filter(survival_t1 == 1), 
-                                  response_column = "ln_stems_t1")) %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
-
-growth_aic.cv <- left_join(growth_aic, growth_cv) %>% 
-  arrange(dAIC) %>%
-  rename(model = rowname)
 
 
 
@@ -208,37 +133,24 @@ growth_aic.cv <- left_join(growth_aic, growth_cv) %>%
 ## -------------------------------------------------------
 
 # Basemodel
-base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
+s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
+s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-flowp_mods <- lapply(smooth_forms0, function(x)
-
-  gam(formula(paste(base_flowp, x)),
+flowp_mod <- gam(as.formula(base_flowp),
       data=data_t0 ,
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.2)
-)
+      gamma=1.4,
+      select = T)
 
 
-
-flowp_aic <- bbmle::AICtab(flowp_mods,
-                           weights = T, base = T) %>%
-  as.data.frame %>% 
-  rownames_to_column
-
-flowp_cv <- sapply(flowp_mods, function(x) gam.crossvalidation(x, 
-                                data = data_t0, 
-                                response_column = "flower_p_t0")) %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
-
-flowp_aic.cv <- left_join(flowp_aic, flowp_cv) %>% 
-  arrange(dAIC) %>%
-  rename(model = rowname)
-
+plot_spline_coeff(best_model = flowp_mod, tas = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = flowp_mod, pr = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = flowp_mod, pet = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = flowp_mod, shade = T, vital_rate = "Survival")
 
 
 ## -------------------------------------------------------
@@ -246,35 +158,25 @@ flowp_aic.cv <- left_join(flowp_aic, flowp_cv) %>%
 ## -------------------------------------------------------
 
 # Basemodel
-base_abp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+base_seedp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
+s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
+s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-abp_mods <- lapply(smooth_forms0, function(x)
-
-  gam(formula(paste(base_abp, x)),
+seedp_mod <- gam(as.formula(base_seedp),
       data=data_t0 %>%
         filter(flower_p_t0 == 1),
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.2)
-)
+      gamma=1.4,
+      select = T)
 
-abp_aic <- bbmle::AICtab(abp_mods,
-                         weights = T, base = T) %>%
-  as.data.frame %>% 
-  rownames_to_column
 
-abp_cv <- sapply(abp_mods, function(x) gam.crossvalidation(x, 
-                            data = data_t0 %>% filter(flower_p_t0 == 1), 
-                            response_column = "seed_p_t0")) %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
-
-abp_aic.cv <- left_join(abp_aic, abp_cv) %>% 
-  arrange(dAIC) %>%
-  rename(model = rowname)
+plot_spline_coeff(best_model = seedp_mod, tas = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedp_mod, pr = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedp_mod, pet = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedp_mod, shade = T, vital_rate = "Survival")
 
 
 
@@ -283,35 +185,25 @@ abp_aic.cv <- left_join(abp_aic, abp_cv) %>%
 ## -------------------------------------------------------
 
 # Basemodel
-base_seed <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+base_seedn <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
+s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
+s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-seed_mods <- lapply(smooth_forms0, function(x)
-
-  gam(formula(paste(base_seed, x)),
+seedn_mod <- gam(as.formula(base_seedn),
       data=data_t0 %>%
         filter(flower_p_t0 == 1 & seed_p_t0 == 1),
       family = Gamma(link = "log"),
       method="GCV.Cp",
-      gamma=1.2)
-)
+      gamma=1.4,
+      select = T)
 
-seed_aic <- bbmle::AICtab(seed_mods,
-                          weights = T, base = T) %>%
-  as.data.frame %>% 
-  rownames_to_column
 
-seed_cv <- sapply(seed_mods, function(x) gam.crossvalidation(x, 
-                               data = data_t0 %>% filter(flower_p_t0 == 1 & seed_p_t0 == 1), 
-                               response_column = "est_seed_n_t0")) %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
-
-seed_aic.cv <- left_join(seed_aic, seed_cv) %>% 
-  arrange(dAIC) %>%
-  rename(model = rowname)
+plot_spline_coeff(best_model = seedn_mod, tas = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedn_mod, pr = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedn_mod, pet = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedn_mod, shade = T, vital_rate = "Survival")
 
 
 

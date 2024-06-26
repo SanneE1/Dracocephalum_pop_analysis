@@ -73,17 +73,18 @@ climate_wider_for_gam <- function(clim_data, demo_data, variables, response_t1 =
 
 
 plot_spline_coeff <- function(best_model, 
-                              lag = lag,
+                              lag = 24,
                               tas = F, pr = F, pet = F,
-                              shade = F, slope = F, rockiness = F, soil = F,
-                              vital_rate, save_plot = F
+                              shade = F, vital_rate, 
+                              save_plot = F
 ) {
   
   lags= c(0:lag); ln_stems_t0=1; population = factor("CR")
 
   tas_scaledcovar= 0; pr_scaledcovar = 0; pet_scaledcovar = 0
-  tot_shading_m = 0; slope_m = 0; rock_m = 0; soil_m= 0
-  interact = ""; covar=""; legendtitle = ""
+  tot_shading_t0 = 0; covar=""; legendtitle = ""
+  
+  xaxis_title = "months"
   
   if(tas) {
     tas_scaledcovar = 1
@@ -97,27 +98,12 @@ plot_spline_coeff <- function(best_model,
     pet_scaledcovar = 1
     yaxis_title = "PET \n coefficient estimates"
     covar = "pet"}
-  
   if(shade) {
-    tot_shading_m = c(0,2,4,6) #c(0,3,6,9)
-    legendtitle <- "shading level"
-    interact = "shading_m"
-  }
-  if(slope) {
-    slope_m = c(0,25,50,75)
-    legendtitle <- "slope (degree)"
-    interact = "slope_m"
-  }
-  if(rockiness) {
-    rock_m = c(0, 33, 66, 99)
-    legendtitle <- "rock cover (%)"
-    interact = "rock_m"
-  }
-  if(soil) {
-    soil_m = c(0,3,6,9)
-    legendtitle <- "soil depth (cm)"
-    interact = "soil_m"
-  }
+    tot_shading_t0 = c(0:10)
+    yaxis_title = "Coefficient estimates"
+    xaxis_title = "Shading level"
+    covar = "tot_shading_t0"
+    }
   
   getBeta.data <- expand.grid(lags= c(0:lag), 
                               ln_stems_t0=1,
@@ -126,32 +112,32 @@ plot_spline_coeff <- function(best_model,
                               soil_depth = 1,
                               rock = 20,
                               slope = 20,
-                              tot_shading_t0 = 3,
+                              tot_shading_t0 = tot_shading_t0,
                               tas_scaledcovar = tas_scaledcovar, 
                               pr_scaledcovar = pr_scaledcovar, 
-                              pet_scaledcovar = pet_scaledcovar,
-                              tot_shading_m = tot_shading_m,
-                              slope_m = slope_m,
-                              rock_m = rock_m,
-                              soil_m = soil_m)
+                              pet_scaledcovar = pet_scaledcovar)
+  
   terms.data <- mgcv::predict.gam(best_model, newdata=getBeta.data, type="terms", se=TRUE)
-  betas_surv_temp <- data.frame(lag = getBeta.data$lags,
-                                interact = getBeta.data[,grep(interact, colnames(getBeta.data))],
-                                beta= terms.data[[1]][,grep(paste0(interact, ".*", covar), colnames(terms.data[[1]]), value = T)],
-                                se= terms.data[[2]][,grep(paste0(interact, ".*", covar), colnames(terms.data[[2]]), value = TRUE)])
+  
+  betas_surv_temp <- data.frame(x = ifelse(rep(shade, times = nrow(getBeta.data)), getBeta.data$tot_shading_t0, (-1 * getBeta.data$lags)),
+                                beta= terms.data[[1]][,grep(covar, colnames(terms.data[[1]]), value = T)],
+                                se= terms.data[[2]][,grep(covar, colnames(terms.data[[2]]), value = TRUE)])
   
   plot <- ggplot() +
-    geom_ribbon(data = betas_surv_temp, aes(x = lag * -1, ymin = beta - se, ymax = beta + se, fill = as.factor(interact)), alpha = 0.2) +
-    geom_line(data = betas_surv_temp, aes(x = lag * -1, y = beta, colour = as.factor(interact))) +
+    geom_ribbon(data = betas_surv_temp, aes(x = x, ymin = beta - se, ymax = beta + se), alpha = 0.2) +
+    geom_line(data = betas_surv_temp, aes(x = x, y = beta)) +
     geom_hline(aes(yintercept = 0)) +
-    scale_x_continuous(breaks = seq(from = -1 * (lag), to = 0, by = 6),
-                       limits = c((lag * -1), 0),
-                       expand = c(0,0)) +
     viridis::scale_fill_viridis(name = legendtitle, option = "D", discrete = T, direction = -1) +  
     viridis::scale_color_viridis(name = legendtitle, option = "D", discrete = T, direction = -1) +  
-    xlab("months") + ylab(yaxis_title) + ggtitle(vital_rate) +
+    xlab(xaxis_title) + ylab(yaxis_title) + ggtitle(vital_rate) +
     theme(legend.position = "bottom")
-  
+ 
+  if(shade == F) {
+    plot <- plot +
+      scale_x_continuous(breaks = seq(from = -1 * (lag), to = 0, by = 6),
+                         limits = c((lag * -1), 0),
+                         expand = c(0,0)) 
+  } 
   
   if(save_plot == T){
     ggsave(plot = plot,
