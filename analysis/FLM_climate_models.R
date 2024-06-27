@@ -1,6 +1,7 @@
 library(tidyverse)
 library(lme4)
 library(mgcv)
+library(patchwork)
 
 ### FLM climate model for Growth
 
@@ -95,10 +96,10 @@ surv_mod <- gam(as.formula(base_surv),
       select = T)
 
 
-plot_spline_coeff(best_model = surv_mod, tas = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = surv_mod, pr = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = surv_mod, pet = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = surv_mod, shade = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = surv_mod, tas = T, vital_rate = "Survival") +
+plot_spline_coeff(best_model = surv_mod, pr = T, vital_rate = "Survival") +
+plot_spline_coeff(best_model = surv_mod, pet = T, vital_rate = "Survival") +
+plot_spline_coeff(best_model = surv_mod, shade = T, vital_rate = "Survival") 
 
 
 ## -------------------------------------------------------
@@ -120,10 +121,10 @@ growth_mod <- gam(as.formula(base_growth),
       select = T)
 
 
-plot_spline_coeff(best_model = growth_mod, tas = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = growth_mod, pr = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = growth_mod, pet = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = growth_mod, shade = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = growth_mod, tas = T, vital_rate = "Growth") +
+plot_spline_coeff(best_model = growth_mod, pr = T, vital_rate = "Growth") +
+plot_spline_coeff(best_model = growth_mod, pet = T, vital_rate = "Growth") +
+plot_spline_coeff(best_model = growth_mod, shade = T, vital_rate = "Growth")
 
 
 
@@ -147,10 +148,10 @@ flowp_mod <- gam(as.formula(base_flowp),
       select = T)
 
 
-plot_spline_coeff(best_model = flowp_mod, tas = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = flowp_mod, pr = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = flowp_mod, pet = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = flowp_mod, shade = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = flowp_mod, tas = T, vital_rate = "Flower probability") +
+plot_spline_coeff(best_model = flowp_mod, pr = T, vital_rate = "Flower probability") +
+plot_spline_coeff(best_model = flowp_mod, pet = T, vital_rate = "Flower probability") +
+plot_spline_coeff(best_model = flowp_mod, shade = T, vital_rate = "Flower probability") 
 
 
 ## -------------------------------------------------------
@@ -173,10 +174,10 @@ seedp_mod <- gam(as.formula(base_seedp),
       select = T)
 
 
-plot_spline_coeff(best_model = seedp_mod, tas = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedp_mod, pr = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedp_mod, pet = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedp_mod, shade = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedp_mod, tas = T, vital_rate = "Seed probability") +
+plot_spline_coeff(best_model = seedp_mod, pr = T, vital_rate = "Seed probability") +
+plot_spline_coeff(best_model = seedp_mod, pet = T, vital_rate = "Seed probability") +
+plot_spline_coeff(best_model = seedp_mod, shade = T, vital_rate = "Seed probability") 
 
 
 
@@ -200,10 +201,10 @@ seedn_mod <- gam(as.formula(base_seedn),
       select = T)
 
 
-plot_spline_coeff(best_model = seedn_mod, tas = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedn_mod, pr = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedn_mod, pet = T, vital_rate = "Survival")
-plot_spline_coeff(best_model = seedn_mod, shade = T, vital_rate = "Survival")
+plot_spline_coeff(best_model = seedn_mod, tas = T, vital_rate = "Seed numbers") +
+plot_spline_coeff(best_model = seedn_mod, pr = T, vital_rate = "Seed numbers") +
+plot_spline_coeff(best_model = seedn_mod, pet = T, vital_rate = "Seed numbers") +
+plot_spline_coeff(best_model = seedn_mod, shade = T, vital_rate = "Seed numbers")
 
 
 
@@ -212,47 +213,11 @@ plot_spline_coeff(best_model = seedn_mod, shade = T, vital_rate = "Survival")
 ## -------------------------------------------------------
 
 
-saveRDS(list(surv = surv_mods[[as.symbol(surv_aic.cv$model[1])]],
-             growth = growth_mods[[as.symbol(growth_aic.cv$model[1])]],
-             flower_p = flowp_mods[[as.symbol(flowp_aic.cv$model[1])]],
-             abort_p = abp_mods[[as.symbol(abp_aic.cv$model[1])]],
-             n_seeds = seed_mods[[as.symbol(seed_aic.cv$model[1])]]),
+saveRDS(list(surv = surv_mod,
+             growth = growth_mod,
+             flower_p = flowp_mod,
+             seedp = seedp_mod,
+             seedn = seedn_mod),
         file = "results/rds/VR_FLM.rds")
-
-saveRDS(list(surv = surv_mods,
-             growth = growth_mods,
-             flower_p = flowp_mods,
-             abort_p = abp_mods,
-             n_seeds = seed_mods),
-        file = "results/rds/VR_FLM_all.rds")
-
-saveRDS(
-  list(
-    surv = surv_aic.cv,
-    growth = growth_aic.cv,
-    flowp = flowp_aic.cv,
-    abp = abp_aic.cv,
-    seeds = seed_aic.cv
-  ),
-  file = "results/rds/VR_mod_AIC_CV.rds"
-)
-
-## Check if crossvalidation would select a different model from AIC
-surv_aic.cv$model[which.min(surv_aic.cv$AIC)]
-surv_aic.cv$model[which.min(surv_aic.cv$RMSE)]
-
-growth_aic.cv$model[which.min(growth_aic.cv$AIC)]
-growth_aic.cv$model[which.min(growth_aic.cv$RMSE)]
-
-flowp_aic.cv$model[which.min(flowp_aic.cv$AIC)]
-flowp_aic.cv$model[which.min(flowp_aic.cv$RMSE)]
-
-abp_aic.cv$model[which.min(abp_aic.cv$AIC)]
-abp_aic.cv$model[which.min(abp_aic.cv$RMSE)]
-
-seed_aic.cv$model[which.min(seed_aic.cv$AIC)]
-seed_aic.cv$model[which.min(seed_aic.cv$RMSE)]
-
-
 
 
