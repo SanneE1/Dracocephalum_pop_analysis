@@ -75,6 +75,8 @@ data_t0$rock_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['rock'], 25))
 data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth'], 25)))) %>% t
 
 
+gamma_vec <- seq(from =1, to=2, by = 0.2)
+
 
 ## -------------------------------------------------------
 ## Survival
@@ -88,13 +90,26 @@ s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-surv_mod <- gam(as.formula(base_surv),
+surv_mods <- lapply(as.list(gamma_vec),
+                    function(x) gam(as.formula(base_surv),
       data=data_t1 ,
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.4,
-      select = T)
+      gamma=x,
+      select = T))
 
+surv_cross <- sapply(as.list(1:length(gamma_vec)), 
+                     function(x) gam.crossvalidation(mod = surv_mods[[x]], 
+                                                     gamma = gamma_vec[x], 
+                                                     data = data_t1, 
+                                                     response_column = "survival_t1"))  
+surv_cross <- surv_cross %>% 
+  t %>%
+  as.data.frame %>% 
+  rownames_to_column
+
+
+surv_mod <- surv_mods[[which.min(surv_cross$RMSE)]]
 
 plot_spline_coeff(best_model = surv_mod, tas = T, vital_rate = "Survival") +
 plot_spline_coeff(best_model = surv_mod, pr = T, vital_rate = "Survival") +
@@ -113,12 +128,26 @@ s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-growth_mod <- gam(as.formula(base_growth),
-      data=data_t1 %>%
-        filter(survival_t1 == 1),
-      method="GCV.Cp",
-      gamma=1.4,
-      select = T)
+growth_mods <- lapply(as.list(gamma_vec),
+                      function(x) gam(as.formula(base_growth),
+                                      data=data_t1 %>%
+                                        filter(survival_t1 == 1),
+                                      method="GCV.Cp",
+                                      gamma=x,
+                                      select = T))
+
+
+growth_cross <- sapply(as.list(1:length(gamma_vec)), 
+                     function(x) gam.crossvalidation(mod = growth_mods[[x]], 
+                                                     gamma = gamma_vec[x], 
+                                       data_t1 %>% filter(survival_t1 == 1), 
+                                       response_column = "ln_stems_t1"))  
+growth_cross <- growth_cross %>% 
+  t %>%
+  as.data.frame %>% 
+  rownames_to_column
+
+growth_mod <- growth_mods[[which.min(growth_cross$RMSE)]]
 
 
 plot_spline_coeff(best_model = growth_mod, tas = T, vital_rate = "Growth") +
@@ -140,12 +169,27 @@ s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-flowp_mod <- gam(as.formula(base_flowp),
+flowp_mods <- lapply(as.list(gamma_vec),
+                    function(x) gam(as.formula(base_flowp),
       data=data_t0 ,
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.4,
-      select = T)
+      gamma=x,
+      select = T))
+
+
+flowp_cross <- sapply(as.list(1:length(gamma_vec)), 
+                     function(x) gam.crossvalidation(mod = flowp_mods[[x]], 
+                                                     gamma = gamma_vec[x], 
+                                                     data_t0, 
+                                                     response_column = "flower_p_t0")) 
+flowp_cross <- flowp_cross %>% 
+  t %>%
+  as.data.frame %>% 
+  rownames_to_column
+
+
+flowp_mod <- flowp_mods[[which.min(flowp_cross$RMSE)]]
 
 
 plot_spline_coeff(best_model = flowp_mod, tas = T, vital_rate = "Flower probability") +
@@ -165,14 +209,29 @@ s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-seedp_mod <- gam(as.formula(base_seedp),
+seedp_mods <- lapply(as.list(gamma_vec),
+                    function(x) gam(as.formula(base_seedp),
       data=data_t0 %>%
         filter(flower_p_t0 == 1),
       family = binomial(link = "logit"),
       method="GCV.Cp",
-      gamma=1.4,
-      select = T)
+      gamma=x,
+      select = T))
 
+
+seedp_cross <- sapply(as.list(1:length(gamma_vec)), 
+                      function(x) gam.crossvalidation(mod = seedp_mods[[x]], 
+                                                      gamma = gamma_vec[x], 
+                                                      data_t0 %>%
+                                                        filter(flower_p_t0 == 1), 
+                                                      response_column = "seed_p_t0"))  
+seedp_cross <- seedp_cross %>% 
+  t %>%
+  as.data.frame %>% 
+  rownames_to_column
+
+
+seedp_mod <- seedp_mods[[which.min(seedp_cross$RMSE)]]
 
 plot_spline_coeff(best_model = seedp_mod, tas = T, vital_rate = "Seed probability") +
 plot_spline_coeff(best_model = seedp_mod, pr = T, vital_rate = "Seed probability") +
@@ -192,14 +251,29 @@ s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
 
 #FLM models
 
-seedn_mod <- gam(as.formula(base_seedn),
+seedn_mods <- lapply(as.list(gamma_vec),
+                    function(x) gam(as.formula(base_seedn),
       data=data_t0 %>%
         filter(flower_p_t0 == 1 & seed_p_t0 == 1),
       family = Gamma(link = "log"),
       method="GCV.Cp",
-      gamma=1.4,
-      select = T)
+      gamma=x,
+      select = T))
 
+
+seedn_cross <- sapply(as.list(1:length(gamma_vec)), 
+                      function(x) gam.crossvalidation(mod = seedn_mods[[x]], 
+                                                      gamma = gamma_vec[x], 
+                                                      data_t0 %>%
+                                                        filter(flower_p_t0 == 1 & seed_p_t0 == 1), 
+                                                      response_column = "est_seed_n_t0"))   
+seedn_cross <- seedn_cross %>% 
+  t %>%
+  as.data.frame %>% 
+  rownames_to_column
+
+
+seedn_mod <- seedn_mods[[which.min(seedn_cross$RMSE)]]
 
 plot_spline_coeff(best_model = seedn_mod, tas = T, vital_rate = "Seed numbers") +
 plot_spline_coeff(best_model = seedn_mod, pr = T, vital_rate = "Seed numbers") +

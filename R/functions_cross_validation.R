@@ -3,8 +3,9 @@
 
 gam.crossvalidation <- function(mod, data, response_column, method = "GCV.Cp", gamma = 1.2, seed = 1503){
   
-  data <- data %>%
-    mutate(population = as.factor(population)) %>% 
+  data <- mod$model %>%
+    mutate(population = as.factor(population),
+           year_t0 = as.integer(as.character(year_t0))) %>% 
     as.data.frame
   formula_mod <- formula(mod)
   family_mod <- mod$family$family
@@ -35,21 +36,18 @@ gam.crossvalidation <- function(mod, data, response_column, method = "GCV.Cp", g
                     data = data_train,
                     family = family_mod,
                     method = method,
-                    gamma = gamma) #,
-    # error=function(e) e)
-    
-    # if(inherits(possibleError, "error")) next
+                    gamma = gamma)
     
     # Predict on full data (so I can retrieve RMSE from both train and test dataset)
-    pred_df[,i] <- predict(object = traingam, newdata = data, select = T, type = "response")
+    pred_df[,i] <- predict(object = traingam, newdata = data, type = "response")
     
-    a <- data_train %>% select(ln_stems_t0, population, year_t0, lags, tot_shading_m, pr_scaledcovar) %>%
-      filter(complete.cases(.))
+    # a <- data_train %>% select(ln_stems_t0, population, year_t0, lags, tot_shading_m, pr_scaledcovar) %>%
+    #   filter(complete.cases(.))
     
     # Save predicted test data to separate dataframe for overall RMSE
     predicted[testrows] <- pred_df[testrows,i]
     
-    not_na <- !is.na(pred_df[,i])
+    not_na <- which(!is.na(pred_df[,i]))
     
     # Get RMSE for train and test data
     rmse_df$RMSE_train[i] <- caret::RMSE(pred_df[which(trainrows & not_na),i], data[which(trainrows & not_na), response_column])
