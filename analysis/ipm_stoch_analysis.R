@@ -176,12 +176,13 @@ clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 
 df <- parLapply(cl,
                   as.list(rep),
-                  function(x) ipm_loop(i = x, df_env = df_env,
+                  function(x) tryCatch(ipm_loop(i = x, df_env = df_env,
                                                 params = params,
                                                 climate_models = climate_models,
                                                 n_it = n_it,
                                                 U = U, L = L, n = n,
-                                                save = T)) %>%
+                                                save = T),
+                                       error = function(e) NULL)) %>%
   bind_rows()
 
 stopCluster(cl)

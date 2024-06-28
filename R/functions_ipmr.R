@@ -66,12 +66,12 @@ run_ipm <- function(params, env_params, locality,
       
       s_loc         =  plogis(s_linear_loc),
       s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
-        s_rock * rock + s_slope * slope + s_soil_depth + soil_depth +
+        s_rock * rock + s_slope * slope + s_soil_depth * soil_depth +
         FLM_clim_predict(model = surv_mod, lag_vec = lags, shading = shading,
                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       g_loc         =  dnorm(stems_2, g_mu_loc, grow_sd),
       g_mu_loc      =  g_int + g_stems * stems_1 + g_site_loc +
-        g_rock * rock + g_slope * slope + g_soil_depth + soil_depth +
+        g_rock * rock + g_slope * slope + g_soil_depth * soil_depth +
         FLM_clim_predict(model = grow_mod, shading = shading, lag_vec = lags, 
                          temp_vec = temp, precip_vec = precip, pet_vec = pet), 
       
@@ -91,20 +91,20 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_rock * rock + fp_slope * slope + fp_soil_depth + soil_depth +
+        fp_rock * rock + fp_slope * slope + fp_soil_depth * soil_depth +
         FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
                                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
       seedp_loc     = plogis(sp_linear_loc),
       sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        sp_rock * rock + sp_slope * slope + sp_soil_depth + soil_depth +
+        sp_rock * rock + sp_slope * slope + sp_soil_depth * soil_depth +
         FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
                                        temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
       seedn_mod_loc     = exp(seedn_linear_loc),
       seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        sn_rock * rock + sn_slope * slope + sn_soil_depth + soil_depth +
+        sn_rock * rock + sn_slope * slope + sn_soil_depth * soil_depth +
         FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
@@ -126,20 +126,20 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_rock * rock + fp_slope * slope + fp_soil_depth + soil_depth +
+        fp_rock * rock + fp_slope * slope + fp_soil_depth * soil_depth +
         FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
       seedp_loc     = plogis(sp_linear_loc),
       sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        sp_rock * rock + sp_slope * slope + sp_soil_depth + soil_depth +
+        sp_rock * rock + sp_slope * slope + sp_soil_depth * soil_depth +
         FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
       seedn_mod_loc     = exp(seedn_linear_loc),
       seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        sn_rock * rock + sn_slope * slope + sn_soil_depth + soil_depth +
+        sn_rock * rock + sn_slope * slope + sn_soil_depth * soil_depth +
         FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
                          temp_vec = temp, precip_vec = precip, pet_vec = pet),
       
@@ -305,6 +305,7 @@ ipm_loop <- function(i, df_env, params,
       rock = df_env$rock[i],
       soil_depth = df_env$soil_depth[i]
     ))
+  
   ipm <- run_ipm(params = params, env_params = env_params, 
                  locality = toupper(loc), 
                  n_it = n_it, U = U, L = L, n = n)
