@@ -31,16 +31,16 @@ sampling_env <- function(iteration, env_params, start_year = 2023) {
 
 FLM_clim_predict <- function(model, lag_vec, 
                              temp_vec, precip_vec, pet_vec, 
-                             shading) {
+                             shading, rock, slope, soil) {
   
   ## dummy data list, won't be using the predictions for n_stems : year_t0 but these need to be provided for predict function
   new_data <- list(
     ln_stems_t0 = 1,  
     population = "CR",
     tot_shading_t0 = shading,
-    slope = 0,
-    rock = 0,
-    soil_depth = 0,
+    slope = slope,
+    rock = rock,
+    soil_depth = soil,
     lags = matrix(lag_vec, nrow = 1),
     tas_scaledcovar = matrix(temp_vec, nrow = 1),
     pr_scaledcovar = matrix(precip_vec, nrow = 1),
@@ -66,14 +66,14 @@ run_ipm <- function(params, env_params, locality,
       
       s_loc         =  plogis(s_linear_loc),
       s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
-        s_rock * rock + s_slope * slope + s_soil_depth * soil_depth +
         FLM_clim_predict(model = surv_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       g_loc         =  dnorm(stems_2, g_mu_loc, grow_sd),
       g_mu_loc      =  g_int + g_stems * stems_1 + g_site_loc +
-        g_rock * rock + g_slope * slope + g_soil_depth * soil_depth +
         FLM_clim_predict(model = grow_mod, shading = shading, lag_vec = lags, 
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet), 
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock), 
       
       data_list     = params,
       states        = list(c("stems")),
@@ -91,22 +91,22 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_rock * rock + fp_slope * slope + fp_soil_depth * soil_depth +
         FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
-                                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       seedp_loc     = plogis(sp_linear_loc),
       sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        sp_rock * rock + sp_slope * slope + sp_soil_depth * soil_depth +
         FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
-                                       temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                                       temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
       seedn_mod_loc     = exp(seedn_linear_loc),
       seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        sn_rock * rock + sn_slope * slope + sn_soil_depth * soil_depth +
         FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
@@ -126,22 +126,22 @@ run_ipm <- function(params, env_params, locality,
       
       fp_loc          = plogis(fp_linear_loc),
       fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        fp_rock * rock + fp_slope * slope + fp_soil_depth * soil_depth +
         FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       seedp_loc     = plogis(sp_linear_loc),
       sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        sp_rock * rock + sp_slope * slope + sp_soil_depth * soil_depth +
         FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
       seedn_mod_loc     = exp(seedn_linear_loc),
       seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        sn_rock * rock + sn_slope * slope + sn_soil_depth * soil_depth +
         FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet),
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         slope = slope, soil = soil_depth, rock = rock),
       
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
@@ -315,8 +315,12 @@ ipm_loop <- function(i, df_env, params,
                     model = df_env$model[i],
                     scenario = df_env$scenario[i],
                     shading = df_env$shading[i],
-                    lambda = ipmr::lambda(ipm),
-                    all_lambda = paste(ipmr::lambda(ipm, type_lambda = "all"), collapse = ","))
+                slope = df_env$slope[i],
+                rock = df_env$rock[i],
+                soil_depth = df_env$soil_depth[i],
+                    lambda = ipmr::lambda(ipm)#,
+                    # all_lambda = paste(ipmr::lambda(ipm, type_lambda = "all"), collapse = ",")
+                    )
   
   if(save){
     write.csv(df1, file = paste0("results/stoch_ipms/lambda_env_levels_", i, ".csv"), row.names = F)

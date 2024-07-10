@@ -26,9 +26,6 @@ params <- list(
   s_site_HK = coef(VR_FLM$surv)[3],
   s_site_KS = coef(VR_FLM$surv)[4],
   s_site_RU = coef(VR_FLM$surv)[5],
-  s_slope = coef(VR_FLM$surv)[6],
-  s_rock = coef(VR_FLM$surv)[7],
-  s_soil_depth = coef(VR_FLM$surv)[8],
   
   grow_mod = VR_FLM$growth,
   grow_sd = sd(resid(VR_FLM$growth)),
@@ -38,9 +35,6 @@ params <- list(
   g_site_HK = coef(VR_FLM$growth)[3],
   g_site_KS = coef(VR_FLM$growth)[4],
   g_site_RU = coef(VR_FLM$growth)[5],
-  g_slope = coef(VR_FLM$growth)[6],
-  g_rock = coef(VR_FLM$growth)[7],
-  g_soil_depth = coef(VR_FLM$growth)[8],
   
   pflower_mod = VR_FLM$flower_p,
   fp_int = coef(VR_FLM$flower_p)[1],
@@ -49,9 +43,6 @@ params <- list(
   fp_site_HK = coef(VR_FLM$flower_p)[3],
   fp_site_KS = coef(VR_FLM$flower_p)[4],
   fp_site_RU = coef(VR_FLM$flower_p)[5],
-  fp_slope = coef(VR_FLM$flower_p)[6],
-  fp_rock = coef(VR_FLM$flower_p)[7],
-  fp_soil_depth = coef(VR_FLM$flower_p)[8],
   
   seedp_mod = VR_FLM$seedp,
   sp_int = coef(VR_FLM$seedp)[1],
@@ -60,9 +51,6 @@ params <- list(
   sp_site_HK = coef(VR_FLM$seedp)[3],
   sp_site_KS = coef(VR_FLM$seedp)[4],
   sp_site_RU = coef(VR_FLM$seedp)[5],
-  sp_slope = coef(VR_FLM$seedp)[6],
-  sp_rock = coef(VR_FLM$seedp)[7],
-  sp_soil_depth = coef(VR_FLM$seedp)[8],
   
   seedn_mod = VR_FLM$seedn,
   sn_int = coef(VR_FLM$seedn)[1],
@@ -71,9 +59,6 @@ params <- list(
   sn_site_HK = coef(VR_FLM$seedn)[3],
   sn_site_KS = coef(VR_FLM$seedn)[4],
   sn_site_RU = coef(VR_FLM$seedn)[5],
-  sn_slope = coef(VR_FLM$seedn)[6],
-  sn_rock = coef(VR_FLM$seedn)[7],
-  sn_soil_depth = coef(VR_FLM$seedn)[8],
   
   seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
   seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
@@ -166,7 +151,7 @@ rep <- rep(c(1:nrow(df_env)))
 
 
 # ### Set up parallel
-cl <- makeCluster(detectCores() - 1)
+cl <- makeCluster(detectCores())
 clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
                        "params", "climate_models",
                        "U", "L", "n", "n_it", "lag",

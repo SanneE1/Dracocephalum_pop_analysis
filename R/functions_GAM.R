@@ -75,16 +75,43 @@ climate_wider_for_gam <- function(clim_data, demo_data, variables, response_t1 =
 plot_spline_coeff <- function(best_model, 
                               lag = 24,
                               tas = F, pr = F, pet = F,
-                              shade = F, vital_rate, 
+                              shade = F, ro = F, sl = F, sd = F,
+                              vital_rate, 
                               save_plot = F
 ) {
   
   lags= c(0:lag); ln_stems_t0=1; population = factor("CR")
 
   tas_scaledcovar= 0; pr_scaledcovar = 0; pet_scaledcovar = 0
-  tot_shading_t0 = 0; covar=""; legendtitle = ""
+  tot_shading_t0 = 0; rock = 0; slope = 0; soil_depth = 0
+  covar=""; legendtitle = ""
   
   xaxis_title = "months"
+  
+  if(shade) {
+    tot_shading_t0 = c(0:10)
+    yaxis_title = "Coefficient estimates"
+    xaxis_title = "Shading level"
+    covar = "tot_shading_t0"
+  }
+  if(ro) {
+    rock = c(0:70)
+    yaxis_title = "Coefficient estimates"
+    xaxis_title = "Rock %"
+    covar = "rock"
+  }
+  if(sl) {
+    slope = c(0:70)
+    yaxis_title = "Coefficient estimates"
+    xaxis_title = "Local slope"
+    covar = "slope"
+  }
+  if(sd) {
+    soil_depth = c(0:10)
+    yaxis_title = "Coefficient estimates"
+    xaxis_title = "Soil Depth"
+    covar = "soil_depth"
+  }
   
   if(tas) {
     tas_scaledcovar = 1
@@ -98,20 +125,15 @@ plot_spline_coeff <- function(best_model,
     pet_scaledcovar = 1
     yaxis_title = "PET \n coefficient estimates"
     covar = "pet"}
-  if(shade) {
-    tot_shading_t0 = c(0:10)
-    yaxis_title = "Coefficient estimates"
-    xaxis_title = "Shading level"
-    covar = "tot_shading_t0"
-    }
+  
   
   getBeta.data <- expand.grid(lags= c(0:lag), 
                               ln_stems_t0=1,
                               population = factor("CR"),
                               year_t0 = 2018,
-                              soil_depth = 1,
-                              rock = 20,
-                              slope = 20,
+                              soil_depth = soil_depth,
+                              rock = rock,
+                              slope = slope,
                               tot_shading_t0 = tot_shading_t0,
                               tas_scaledcovar = tas_scaledcovar, 
                               pr_scaledcovar = pr_scaledcovar, 
@@ -119,7 +141,20 @@ plot_spline_coeff <- function(best_model,
   
   terms.data <- mgcv::predict.gam(best_model, newdata=getBeta.data, type="terms", se=TRUE)
   
-  betas_surv_temp <- data.frame(x = ifelse(rep(shade, times = nrow(getBeta.data)), getBeta.data$tot_shading_t0, (-1 * getBeta.data$lags)),
+  if(tas|pet|pr){
+    xaxis = (-1 * getBeta.data$lags)
+  } else if(shade){
+    xaxis = getBeta.data$tot_shading_t0
+  } else if(ro){
+    xaxis = getBeta.data$rock
+  } else if(sl){
+    xaxis = getBeta.data$slope
+  } else if(sd){
+    xaxis = getBeta.data$soil_depth
+  }
+  
+  
+  betas_surv_temp <- data.frame(x = xaxis,
                                 beta= terms.data[[1]][,grep(covar, colnames(terms.data[[1]]), value = T)],
                                 se= terms.data[[2]][,grep(covar, colnames(terms.data[[2]]), value = TRUE)])
   
@@ -132,7 +167,7 @@ plot_spline_coeff <- function(best_model,
     xlab(xaxis_title) + ylab(yaxis_title) + ggtitle(vital_rate) +
     theme(legend.position = "bottom")
  
-  if(shade == F) {
+  if(tas|pr|pet) {
     plot <- plot +
       scale_x_continuous(breaks = seq(from = -1 * (lag), to = 0, by = 6),
                          limits = c((lag * -1), 0),
@@ -148,3 +183,18 @@ plot_spline_coeff <- function(best_model,
   return(plot)
 }
 
+generate_combinations <- function(terms) {
+  # Create an empty list to store the combinations
+  combinations <- list()
+  
+  # Loop over the range of possible lengths (1 to length of terms)
+  for (i in 1:length(terms)) {
+    # Generate all combinations of length i
+    comb <- combn(terms, i, simplify = FALSE)
+    comb <- lapply(comb, function(x) paste(x, collapse = "+"))
+    # Append these combinations to the list
+    combinations <- c(combinations, comb)
+  }
+  
+  return(combinations)
+}

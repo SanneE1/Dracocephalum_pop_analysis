@@ -2,6 +2,8 @@ library(tidyverse)
 library(lme4)
 library(mgcv)
 library(patchwork)
+library(MuMIn)
+library(parallel)
 
 ### FLM climate model for Growth
 
@@ -74,224 +76,414 @@ data_t0$slope_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['slope'], 25
 data_t0$rock_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['rock'], 25)))) %>% t
 data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth'], 25)))) %>% t
 
+formula_parts <- c(
+  tas = "s(lags, by= tas_scaledcovar, bs = 'cs')", 
+  tas_int = "ti(lags, tot_shading_t0, by= tas_scaledcovar, bs = 'cs')",
+  pr = "s(lags, by= pr_scaledcovar, bs = 'cs')",
+  pr_int = "ti(lags, tot_shading_t0, by= pr_scaledcovar, bs = 'cs')",
+  pet = "s(lags, by= pet_scaledcovar, bs = 'cs')", 
+  pet_int = "ti(lags, tot_shading_t0, by= pet_scaledcovar, bs = 'cs')",
+  shade = "s(tot_shading_t0, k = 8, bs = 'cs')", 
+  slope = "s(slope, k = 8, bs = 'cs')",
+  rock = "s(rock, k = 8, bs = 'cs')", 
+  soil = "s(soil_depth, k = 8, bs = 'cs')"
+)
 
-gamma_vec <- seq(from =1, to=2, by = 0.2)
 
+## -------------------------------------------------------
+## Start parallel
+## -------------------------------------------------------
+
+cores <- detectCores() - 4
+
+cl <- makeCluster(cores)
+
+clusterEvalQ(cl, c(library(mgcv), library(MuMIn), library(dplyr)))
+clusterExport(cl=cl, c("gam.crossvalidation"))
 
 ## -------------------------------------------------------
 ## Survival
 ## -------------------------------------------------------
 
 
+surv_data <- data_t1 %>%
+  select(survival_t1, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
+         tot_shading_t0, slope, rock, soil_depth, tot_shading_m) %>%
+  filter(complete.cases(.))
+
 # Basemodel
-base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
-s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
-s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth" 
+base_surv <- "survival_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+formula_surv_full <- paste(c(base_surv, formula_parts), collapse = "+")  
 
 #FLM models
+# surv_full <- gam(as.formula(formula_surv_full),
+#                  data=surv_data ,
+#                  family = binomial(link = "logit"),
+#                  method="GCV.Cp",
+#                  gamma=1.4,
+#                  select = T,
+#                  na.action = "na.fail")
+# 
+# summary(surv_full)
 
-surv_mods <- lapply(as.list(gamma_vec),
-                    function(x) gam(as.formula(base_surv),
-      data=data_t1 ,
-      family = binomial(link = "logit"),
-      method="GCV.Cp",
-      gamma=x,
-      select = T))
+# plot(mgcViz::getViz(surv_full))
 
-surv_cross <- sapply(as.list(1:length(gamma_vec)), 
-                     function(x) gam.crossvalidation(mod = surv_mods[[x]], 
-                                                     gamma = gamma_vec[x], 
-                                                     data = data_t1, 
-                                                     response_column = "survival_t1"))  
-surv_cross <- surv_cross %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
+surv_combinations <- generate_combinations(formula_parts) %>% 
+  paste(base_surv, ., sep = "+")
+
+clusterExport(cl=cl, c("surv_data"))
+
+surv_mods <- parLapply(cl, 
+                         surv_combinations, 
+                         function(x) gam(as.formula(x),
+                                         data=surv_data ,
+                                         family = binomial(link = "logit"),
+                                         method="GCV.Cp",
+                                         gamma=1.4,
+                                         select = T,
+                                         na.action = "na.fail")
+)
+saveRDS(surv_mods, file = "results/rds/surv_flm_mods.rds")
 
 
-surv_mod <- surv_mods[[which.min(surv_cross$RMSE)]]
+surv_cross <- parLapply(cl,
+                          surv_mods,
+                          function(x) gam.crossvalidation(mod = x, 
+                                                          response_column =  "survival_t1", 
+                                                          subset_length = 10)) %>%
+  bind_rows()
 
-plot_spline_coeff(best_model = surv_mod, tas = T, vital_rate = "Survival") +
-plot_spline_coeff(best_model = surv_mod, pr = T, vital_rate = "Survival") +
-plot_spline_coeff(best_model = surv_mod, pet = T, vital_rate = "Survival") +
-plot_spline_coeff(best_model = surv_mod, shade = T, vital_rate = "Survival") 
+saveRDS(surv_cross, file = "results/rds/surv_flm_cross.rds")
+
+ 
+# View(surv_cross)
+# 
+# surv_combinations[c(232, 176,84)]
+# 
+# plot(mgcViz::getViz(surv_mods[[232]]))
+# plot(mgcViz::getViz(surv_mods[[250]]))
+# plot(mgcViz::getViz(surv_mods[[176]]))
+# plot(mgcViz::getViz(surv_mods[[84]]))
+# 
+# 
+# saveRDS(surv_mods[[176]], file = "results/rds/surv_flm.rds")
 
 
 ## -------------------------------------------------------
 ## Growth
 ## -------------------------------------------------------
 
+growth_data <- data_t1 %>%
+  filter(survival_t1 == 1) %>%
+  select(ln_stems_t1, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
+         tot_shading_t0, slope, rock, soil_depth, tot_shading_m) %>%
+  filter(complete.cases(.))
+
 # Basemodel
-base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
-s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
-s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
+base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+formula_growth_full <- paste(c(base_growth, formula_parts), collapse = "+")  
 
 #FLM models
+# 
+# growth_full <- gam(as.formula(formula_growth_full),
+#                    data=growth_data,
+#                    method="GCV.Cp",
+#                    gamma=1.4,
+#                    select = T,
+#                    na.action = "na.fail")
+# 
+# summary(growth_full)
+# 
+# plot(mgcViz::getViz(growth_full))
 
-growth_mods <- lapply(as.list(gamma_vec),
-                      function(x) gam(as.formula(base_growth),
-                                      data=data_t1 %>%
-                                        filter(survival_t1 == 1),
+growth_combinations <- generate_combinations(formula_parts) %>% 
+  paste(base_growth, ., sep = "+")
+
+clusterExport(cl=cl, c("growth_data"))
+
+growth_mods <- parLapply(cl, 
+                         growth_combinations, 
+                      function(x) gam(as.formula(x),
+                                      data=growth_data,
                                       method="GCV.Cp",
-                                      gamma=x,
-                                      select = T))
+                                      gamma=1.4,
+                                      select = T,
+                                      na.action = "na.fail")
+  )
+saveRDS(growth_mods, file = "results/rds/growth_flm_mods.rds")
 
 
-growth_cross <- sapply(as.list(1:length(gamma_vec)), 
-                     function(x) gam.crossvalidation(mod = growth_mods[[x]], 
-                                                     gamma = gamma_vec[x], 
-                                       data_t1 %>% filter(survival_t1 == 1), 
-                                       response_column = "ln_stems_t1"))  
-growth_cross <- growth_cross %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
+growth_cross <- parLapply(cl,
+                          growth_mods,
+                          function(x) gam.crossvalidation(mod = x, 
+                                                          response_column =  "ln_stems_t1", 
+                                                          subset_length = 3))
 
-growth_mod <- growth_mods[[which.min(growth_cross$RMSE)]]
+saveRDS(growth_cross, file = "results/rds/growth_flm_cross.rds")
 
 
-plot_spline_coeff(best_model = growth_mod, tas = T, vital_rate = "Growth") +
-plot_spline_coeff(best_model = growth_mod, pr = T, vital_rate = "Growth") +
-plot_spline_coeff(best_model = growth_mod, pet = T, vital_rate = "Growth") +
-plot_spline_coeff(best_model = growth_mod, shade = T, vital_rate = "Growth")
-
-
+# View(growth_cross)
+# 
+# growth_combinations[c(189,202,221,234)]
+# 
+# plot(mgcViz::getViz(growth_mods[[189]]))
+# plot(mgcViz::getViz(growth_mods[[202]]))
+# 
+# saveRDS(growth_mods[[189]], file = "results/rds/growth_flm.rds")
 
 
 ## -------------------------------------------------------
 ## Flower probability
 ## -------------------------------------------------------
 
+flowp_data <- data_t0 %>% 
+  select(flower_p_t0, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
+         tot_shading_t0, slope, rock, soil_depth, tot_shading_m) %>%
+  filter(complete.cases(.))
+
 # Basemodel
-base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
-s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
-s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
+base_flowp <- "flower_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+
+formula_flowp_full <- paste(c(base_flowp, formula_parts), collapse = "+")  
 
 #FLM models
 
-flowp_mods <- lapply(as.list(gamma_vec),
-                    function(x) gam(as.formula(base_flowp),
-      data=data_t0 ,
-      family = binomial(link = "logit"),
-      method="GCV.Cp",
-      gamma=x,
-      select = T))
+# flowp_full <- gam(as.formula(formula_flowp_full),
+#                   data=flowp_data ,
+#                   family = binomial(link = "logit"),
+#                   method="GCV.Cp",
+#                   gamma=1.4,
+#                   select = T,
+#                   na.action = "na.fail")
+# 
+# 
+# summary(flowp_full)
+# 
+# plot(mgcViz::getViz(flowp_full))
 
 
-flowp_cross <- sapply(as.list(1:length(gamma_vec)), 
-                     function(x) gam.crossvalidation(mod = flowp_mods[[x]], 
-                                                     gamma = gamma_vec[x], 
-                                                     data_t0, 
-                                                     response_column = "flower_p_t0")) 
-flowp_cross <- flowp_cross %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
+flowp_combinations <- generate_combinations(formula_parts[-c(7,10)]) %>% 
+  paste(base_flowp, ., sep = "+")
+
+clusterExport(cl=cl, c("flowp_data"))
+
+flowp_mods <- parLapply(cl, 
+                         flowp_combinations, 
+                         function(x) gam(as.formula(x),
+                                         data=flowp_data ,
+                                         family = binomial(link = "logit"),
+                                         method="GCV.Cp",
+                                         gamma=1.4,
+                                         select = T,
+                                         na.action = "na.fail")
+)
+saveRDS(flowp_mods, file = "results/rds/flowp_flm_mods.rds")
 
 
-flowp_mod <- flowp_mods[[which.min(flowp_cross$RMSE)]]
+flowp_cross <- parLapply(cl,
+                         flowp_mods,
+                          function(x) gam.crossvalidation(mod = x, 
+                                                          response_column =  "flower_p_t0", 
+                                                          subset_length = 3)) %>%
+  bind_rows()
 
 
-plot_spline_coeff(best_model = flowp_mod, tas = T, vital_rate = "Flower probability") +
-plot_spline_coeff(best_model = flowp_mod, pr = T, vital_rate = "Flower probability") +
-plot_spline_coeff(best_model = flowp_mod, pet = T, vital_rate = "Flower probability") +
-plot_spline_coeff(best_model = flowp_mod, shade = T, vital_rate = "Flower probability") 
+saveRDS(flowp_cross, file = "results/rds/flowp_flm_cross.rds")
+
+
+# View(flowp_cross)
+# 
+# flowp_combinations[c(249,227,191,168,189,113)]
+# 
+# summary(flowp_mods[[249]])
+# plot(mgcViz::getViz(flowp_mods[[249]]))
+
+summary(flowp_mods[[227]])
+plot(mgcViz::getViz(flowp_mods[[227]]))
+
+# summary(flowp_mods[[191]])
+# plot(mgcViz::getViz(flowp_mods[[191]]))
+# 
+# summary(flowp_mods[[168]])
+# plot(mgcViz::getViz(flowp_mods[[168]]))
+# 
+# summary(flowp_mods[[189]])
+# plot(mgcViz::getViz(flowp_mods[[189]]))
+# 
+# summary(flowp_mods[[113]])
+# plot(mgcViz::getViz(flowp_mods[[113]]))
+
+
+
+saveRDS(flowp_mods[[227]], file = "results/rds/flowp_flm.rds")
 
 
 ## -------------------------------------------------------
-## Abortion probability
+## Seed probability
 ## -------------------------------------------------------
 
+seedp_data <- data_t0 %>%
+  filter(flower_p_t0 == 1) %>%
+  select(seed_p_t0, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
+         tot_shading_t0, slope, rock, soil_depth) %>%
+  filter(complete.cases(.))
+  
 # Basemodel
-base_seedp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
-s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
-s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
+base_seedp <- "seed_p_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+formula_seedp_full <- paste(c(base_seedp, formula_parts), collapse = "+")  
 
 #FLM models
-
-seedp_mods <- lapply(as.list(gamma_vec),
-                    function(x) gam(as.formula(base_seedp),
-      data=data_t0 %>%
-        filter(flower_p_t0 == 1),
-      family = binomial(link = "logit"),
-      method="GCV.Cp",
-      gamma=x,
-      select = T))
-
-
-seedp_cross <- sapply(as.list(1:length(gamma_vec)), 
-                      function(x) gam.crossvalidation(mod = seedp_mods[[x]], 
-                                                      gamma = gamma_vec[x], 
-                                                      data_t0 %>%
-                                                        filter(flower_p_t0 == 1), 
-                                                      response_column = "seed_p_t0"))  
-seedp_cross <- seedp_cross %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
+# 
+# seedp_full <- gam(as.formula(formula_seedp_full),
+#                   data=seedp_data,
+#                   family = binomial(link = "logit"),
+#                   method="GCV.Cp",
+#                   gamma=1.4,
+#                   select = T,
+#                   na.action = "na.fail")
+# 
+# summary(seedp_full)
+# 
+# plot(mgcViz::getViz(seedp_full))
 
 
-seedp_mod <- seedp_mods[[which.min(seedp_cross$RMSE)]]
+seedp_combinations <- generate_combinations(formula_parts[-c(8,10)]) %>% 
+  paste(base_seedp, ., sep = "+")
 
-plot_spline_coeff(best_model = seedp_mod, tas = T, vital_rate = "Seed probability") +
-plot_spline_coeff(best_model = seedp_mod, pr = T, vital_rate = "Seed probability") +
-plot_spline_coeff(best_model = seedp_mod, pet = T, vital_rate = "Seed probability") +
-plot_spline_coeff(best_model = seedp_mod, shade = T, vital_rate = "Seed probability") 
+clusterExport(cl=cl, c("seedp_data"))
+
+seedp_mods <- parLapply(cl, 
+                        seedp_combinations, 
+                        function(x) gam(as.formula(x),
+                                        data=seedp_data,
+                                        family = binomial(link = "logit"),
+                                        method="GCV.Cp",
+                                        gamma=1.4,
+                                        select = T,
+                                        na.action = "na.fail")
+)
+saveRDS(seedp_mods, file = "results/rds/seedp_flm_mods.rds")
 
 
+seedp_cross <- parLapply(cl,
+                         seedp_mods,
+                         function(x) gam.crossvalidation(mod = x, 
+                                                         response_column =  "seed_p_t0", 
+                                                         subset_length = 3)) %>%
+  bind_rows()
+
+
+saveRDS(seedp_cross, file = "results/rds/seedp_flm_cross.rds")
+
+
+# View(seedp_cross)
+# 
+# seedp_combinations[c(253,238,251,255,249,190)]
+# 
+# summary(seedp_mods[[253]])
+# plot(mgcViz::getViz(seedp_mods[[253]]))
+# 
+# summary(seedp_mods[[238]])
+# plot(mgcViz::getViz(seedp_mods[[238]]))
+# 
+# summary(seedp_mods[[251]])
+# plot(mgcViz::getViz(seedp_mods[[251]]))
+# 
+# summary(seedp_mods[[255]])
+# plot(mgcViz::getViz(seedp_mods[[255]]))
+# 
+# summary(seedp_mods[[249]])
+# plot(mgcViz::getViz(seedp_mods[[249]]))
+
+summary(seedp_mods[[190]])
+plot(mgcViz::getViz(seedp_mods[[190]]))
+
+
+saveRDS(seedp_mods[[190]], file = "results/rds/seedp_flm.rds")
 
 ## -------------------------------------------------------
 ## Seed numbers
 ## -------------------------------------------------------
 
+seedn_data <- data_t0 %>%
+  filter(flower_p_t0 == 1 & seed_p_t0 == 1) %>%
+  select(est_seed_n_t0, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
+         tot_shading_t0, slope, rock, soil_depth) %>%
+  filter(complete.cases(.))
+
 # Basemodel
-base_seedn <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're') + 
-s(lags, k=lag, by= tas_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pr_scaledcovar, bs = 'cs') + s(lags, k=lag, by= pet_scaledcovar, bs = 'cs') +
-s(tot_shading_t0, k = 8, bs = 'cs') + slope + rock + soil_depth"
+base_seedn <- "est_seed_n_t0 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
+formula_seedn_full <- paste(c(base_seedn, formula_parts), collapse = "+")  
 
 #FLM models
-
-seedn_mods <- lapply(as.list(gamma_vec),
-                    function(x) gam(as.formula(base_seedn),
-      data=data_t0 %>%
-        filter(flower_p_t0 == 1 & seed_p_t0 == 1),
-      family = Gamma(link = "log"),
-      method="GCV.Cp",
-      gamma=x,
-      select = T))
-
-
-seedn_cross <- sapply(as.list(1:length(gamma_vec)), 
-                      function(x) gam.crossvalidation(mod = seedn_mods[[x]], 
-                                                      gamma = gamma_vec[x], 
-                                                      data_t0 %>%
-                                                        filter(flower_p_t0 == 1 & seed_p_t0 == 1), 
-                                                      response_column = "est_seed_n_t0"))   
-seedn_cross <- seedn_cross %>% 
-  t %>%
-  as.data.frame %>% 
-  rownames_to_column
+# 
+# seedn_full <- gam(as.formula(formula_seedn_full),
+#                   data=seedn_data,
+#                   family = Gamma(link = "log"),
+#                   method="GCV.Cp",
+#                   gamma=1.4,
+#                   select = T,
+#                   na.action = "na.fail")
+# 
+# summary(seedn_full)
+# plot(mgcViz::getViz(seedn_full))
 
 
-seedn_mod <- seedn_mods[[which.min(seedn_cross$RMSE)]]
+seedn_combinations <- generate_combinations(formula_parts[-c(3,9)]) %>% 
+  paste(base_seedn, ., sep = "+")
 
-plot_spline_coeff(best_model = seedn_mod, tas = T, vital_rate = "Seed numbers") +
-plot_spline_coeff(best_model = seedn_mod, pr = T, vital_rate = "Seed numbers") +
-plot_spline_coeff(best_model = seedn_mod, pet = T, vital_rate = "Seed numbers") +
-plot_spline_coeff(best_model = seedn_mod, shade = T, vital_rate = "Seed numbers")
+clusterExport(cl=cl, c("seedn_data"))
+
+seedn_mods <- parLapply(cl, 
+                        seedn_combinations, 
+                        function(x) gam(as.formula(x),
+                                        data=seedn_data,
+                                        family = Gamma(link = "log"),
+                                        method="GCV.Cp",
+                                        gamma=1.4,
+                                        select = T,
+                                        na.action = "na.fail")
+)
+saveRDS(seedn_mods, file = "results/rds/seedn_flm_mods.rds")
 
 
+seedn_cross <- parLapply(cl,
+                         seedn_mods,
+                         function(x) gam.crossvalidation(mod = x, 
+                                                         response_column =  "seed_p_t0", 
+                                                         subset_length = 3)) %>%
+  bind_rows()
+
+
+saveRDS(seedn_cross, file = "results/rds/seedn_flm_cross.rds")
+
+
+# View(seedn_cross)
+
+# seedn_combinations[c(56, 64, 15)]
+
+# summary(seedn_mods[[56]])
+# plot(mgcViz::getViz(seedn_mods[[56]]))
+
+# summary(seedn_mods[[64]])
+# plot(mgcViz::getViz(seedn_mods[[64]]))
+
+summary(seedn_mods[[15]])
+plot(mgcViz::getViz(seedn_mods[[15]]))
+
+
+saveRDS(seedn_mods[[15]], file = "results/rds/seedn_flm.rds")
 
 ## -------------------------------------------------------
 ## Save results
 ## -------------------------------------------------------
 
-
-saveRDS(list(surv = surv_mod,
-             growth = growth_mod,
-             flower_p = flowp_mod,
-             seedp = seedp_mod,
-             seedn = seedn_mod),
+saveRDS(list(surv = readRDS(file = "results/rds/surv_flm.rds"),
+             growth = readRDS(file = "results/rds/growth_flm.rds"),
+             flower_p = readRDS(file = "results/rds/flowp_flm.rds"),
+             seedp = readRDS(file = "results/rds/seedp_flm.rds"),
+             seedn = readRDS(file = "results/rds/seedn_flm.rds")),
         file = "results/rds/VR_FLM.rds")
 
 
