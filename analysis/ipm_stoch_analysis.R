@@ -149,6 +149,9 @@ df_env <- rbind(hist, fut, rock, slope, soil) %>%
 
 rep <- rep(c(1:nrow(df_env)))
 
+already_done <- list.files("results/stoch_ipms/") %>% 
+  regmatches(. , regexpr("\\d+" , .)) %>% as.numeric
+
 
 # ### Set up parallel
 cl <- makeCluster(detectCores())
