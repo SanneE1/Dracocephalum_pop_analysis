@@ -1,6 +1,11 @@
 ## This script calculates lambda for different environmental variable levels
 ## under asymptotic behaviour (i.e. long run simulations)
 
+args = commandArgs(trailingOnly = T)
+
+setwd(args[2])
+
+
 library(dplyr)
 library(lme4)
 library(ipmr)
@@ -15,7 +20,7 @@ state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 climate_models <- readRDS("results/rds/ARIMA_clim_mods.rds")
 
 lag = 24
-n_it = 5000
+n_it = 10000
 
 # param/model list 
 params <- list(
@@ -147,14 +152,16 @@ soil <- expand.grid(localities = localities,
 df_env <- rbind(hist, fut, rock, slope, soil) %>% 
   mutate(localities = as.character(localities))
 
-rep <- rep(c(1:nrow(df_env)))
-
-already_done <- list.files("results/stoch_ipms/") %>% 
-  regmatches(. , regexpr("\\d+" , .)) %>% as.numeric
+rep <- rep(c(1:nrow(df_env)), 10)
 
 
 # ### Set up parallel
-cl <- makeCluster(detectCores())
+# 
+# Local machine
+# cl <- makeCluster(detectCores())
+# Bash runs
+cl <- makeForkCluster(outfile = "")
+
 clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
                        "params", "climate_models",
                        "U", "L", "n", "n_it", "lag",
@@ -177,3 +184,16 @@ stopCluster(cl)
 
 write.csv(df, file = "results/overview_lambda_env_levels.csv",
           row.names = F)
+
+
+## Run as an array job
+# taskID <- as.integer(sys.getenv("SLURM_ARRAY_TASK_ID"))
+# 
+# df <- ipm_loop(i = rep[taskID], df_env = df_env,
+# params = params,
+# climate_models = climate_models,
+# n_it = n_it,
+# U = U, L = L, n = n,
+# save = T)
+# 
+# write.csv(df, file = file.path("results", paste0("ipm_stoch_" taskID, ".csv")), row.names = F)
