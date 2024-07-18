@@ -102,7 +102,9 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
 shading <- seq(0,6, length.out = 4)
-# slope <- seq(0,80, length.out = 4)
+slope <- seq(0, 50, length.out = 6)
+rock <- seq(0, 80, length.out = 6)
+soil_depth <- seq(0,10, length.out = 6)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
@@ -110,18 +112,24 @@ scenario <- c("rcp45", "rcp85")
 
 df_env <- expand.grid(localities = localities, 
                       shading = shading, 
+                      slope = 25,
+                      rock = 30,
+                      soil_depth = 5,
                       scenario = scenario,
                       model = model
 ) %>% 
   rbind(.,
         expand.grid(
           localities = localities, 
-          shading = shading, 
-          # slope = slope,
+          shading = shading,  
+          slope = 25,
+          rock = 30,
+          soil_depth = 5,
           scenario = NA,
           model = "No change"
         )) %>% 
   mutate(localities = as.character(localities)) 
+
 df_env <- df_env[rep(1:nrow(df_env), 30),] %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------

@@ -10,8 +10,10 @@ mod_pred <- function(indi, model,
     ln_stems_t0 = indi$size,  
     population = rep(toupper(locality), n),
     tot_shading_t0 = indi$shading,
+    slope = indi$slope,
+    rock = indi$rock,
+    soil_depth = indi$soil_depth,
     year_t0 = rep(2016, n),   ## just a dummy, should be ignored when predicting below
-    tot_shading_m = matrix(indi$shading, ncol = (lag+1), nrow = n),
     lags = matrix(clim$lags, ncol = (lag+1), nrow = n, byrow = T),
     tas_scaledcovar = matrix(clim$temp, ncol = (lag+1), nrow = n, byrow = T),
     pr_scaledcovar = matrix(clim$precip, ncol = (lag+1), nrow = n, byrow = T),
@@ -19,7 +21,7 @@ mod_pred <- function(indi, model,
   )
   
   pt <- mgcv::predict.gam(model, new_data, 
-                          exclude = 'year_t0',
+                          exclude = 's(year_t0)',
                           type = "response")
   return(pt)
 }
@@ -136,8 +138,10 @@ ibm_ext_p <- function(i, df_env, params,
   model <- df_env$model[i]
   locality <- df_env$localities[i]
   
-  # slope_mean <- df_env$mean_slope[i]
-  # slope_sd <- df_env$sd_slope[i]
+  slope<- df_env$slope[i]
+  rock <- df_env$rock[i]
+  soil_depth <- df_env$soil_depth[i]
+  
   
   if(model == "No change") {
     
@@ -155,8 +159,11 @@ ibm_ext_p <- function(i, df_env, params,
   env_params <- append(
     clim_mod,
     list(lags = lag,
-         shading = df_env$shading[i] #,
-         # slope = df_env$slope[i]
+         shading = df_env$shading[i],
+         slope = df_env$slope[i],
+         rock = df_env$rock[i],
+         soil_depth = df_env$soil_depth[i]
+         
     ))
   
   
@@ -169,11 +176,17 @@ ibm_ext_p <- function(i, df_env, params,
   
   # set up starting shading & slope
   pop_shading <- rbinom(n = length(pop_vec), 20, prob = (env_params$shading/20))
+  pop_slope <- rep(slope, length(pop_vec))
+  pop_rock <- rep(rock, length(pop_vec))
+  pop_sd <- rep(soil_depth, length(pop_vec))
 
   # Set up start population
   indi <- data.frame(
     size = pop_vec,
-    shading = pop_shading
+    shading = pop_shading,
+    slope = pop_slope,
+    rock = pop_rock,
+    soil_depth = pop_sd
   )
   
   pop_size <- data.frame(
