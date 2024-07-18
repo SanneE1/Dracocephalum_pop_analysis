@@ -2,7 +2,7 @@
 ## Now this is re-calculated for each year (so last years temp doesn't line up with 
 ## the lagged temp in current year)
 sampling_env <- function(iteration, env_params, start_year = 2023) {
-  
+  suppressWarnings({
   lags_sim <- matrix(c(1:(env_params$lags + 1)), nrow = 1, ncol = (env_params$lags + 1), byrow = T)
   
   ### get values for window function
@@ -16,7 +16,7 @@ sampling_env <- function(iteration, env_params, start_year = 2023) {
     matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
   tas_sim <- rev(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start, end))) %>%
     matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
-  
+  })
   
   return(list(lags = lags_sim,
               temp = tas_sim,
@@ -50,7 +50,7 @@ FLM_clim_predict <- function(model, lag_vec,
   
   pt <- mgcv::predict.gam(model, new_data, type = "terms", exclude = "s(year_t0)")
   
-  a <-  sum(pt[, grep("s\\(", attributes(pt)[[2]][[2]], value = T)])
+  a <-  sum(pt[, -c(1,2)])
   
   return(a)
 }
@@ -67,13 +67,13 @@ run_ipm <- function(params, env_params, locality,
       s_loc         =  plogis(s_linear_loc),
       s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
         FLM_clim_predict(model = surv_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet,
                          slope = slope, soil = soil_depth, rock = rock),
       g_loc         =  dnorm(stems_2, g_mu_loc, grow_sd),
       g_mu_loc      =  g_int + g_stems * stems_1 + g_site_loc +
-        FLM_clim_predict(model = grow_mod, shading = shading, lag_vec = lags, 
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock), 
+        FLM_clim_predict(model = grow_mod, lag_vec = lags, shading = shading,
+                         temp_vec = temp, precip_vec = precip, pet_vec = pet,
+                         slope = slope, soil = soil_depth, rock = rock),
       
       data_list     = params,
       states        = list(c("stems")),
@@ -82,7 +82,7 @@ run_ipm <- function(params, env_params, locality,
       par_set_indices = list(loc = c("CR", "HK", "KS", "RU")),
       
       evict_cor     = TRUE,
-      evict_fun     = truncated_distributions("norm", "g_loc")
+      evict_fun     = discrete_extrema("g_loc", "stems", n, n)
     ) %>%
     define_kernel(
       name = "F_to_SDL_loc",
