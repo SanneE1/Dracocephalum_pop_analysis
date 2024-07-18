@@ -1,10 +1,8 @@
 ## This script calculates lambda for different environmental variable levels
 ## under asymptotic behaviour (i.e. long run simulations)
 
-args = commandArgs(trailingOnly = T)
-
-setwd(args[2])
-
+# args = commandArgs(trailingOnly = T)
+# setwd(args[2])
 
 library(dplyr)
 library(lme4)
@@ -20,7 +18,7 @@ state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 climate_models <- readRDS("results/rds/ARIMA_clim_mods.rds")
 
 lag = 24
-n_it = 10000
+n_it = 5000
 
 # param/model list 
 params <- list(
@@ -158,9 +156,9 @@ rep <- rep(c(1:nrow(df_env)), 10)
 # ### Set up parallel
 # 
 # Local machine
-# cl <- makeCluster(detectCores())
+cl <- makeCluster(detectCores()-1)
 # Bash runs
-cl <- makeForkCluster(outfile = "")
+# cl <- makeForkCluster(outfile = "")
 
 clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
                        "params", "climate_models",
