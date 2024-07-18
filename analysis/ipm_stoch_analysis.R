@@ -127,7 +127,7 @@ slope <- expand.grid(localities = "CR",
                    model = NA
 ) 
 
-rock <- expand.grid(localities = localities, 
+rock <- expand.grid(localities = "CR", 
                    shading = 3, 
                    slope = 14,
                    rock = rock,
@@ -137,7 +137,7 @@ rock <- expand.grid(localities = localities,
                    model = NA
 ) 
 
-soil <- expand.grid(localities = localities, 
+soil <- expand.grid(localities = "CR", 
                    shading = 3, 
                    slope = 14,
                    rock = 30,
@@ -161,15 +161,15 @@ cl <- makeCluster(detectCores()-1)
 # cl <- makeForkCluster(outfile = "")
 
 clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
-                       "params", "climate_models",
+                       "params", "climate_models", "rep",
                        "U", "L", "n", "n_it", "lag",
                        "sampling_env", "FLM_clim_predict"))
 
 clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
 
-df <- parLapply(cl,
-                  as.list(rep),
-                  function(x) tryCatch(ipm_loop(i = x, df_env = df_env,
+df <- clusterApplyLB(cl,
+                  as.list(c(76:length(rep))),
+                  function(x) tryCatch(ipm_loop(i = rep[x], df_env = df_env,
                                                 params = params,
                                                 climate_models = climate_models,
                                                 n_it = n_it,

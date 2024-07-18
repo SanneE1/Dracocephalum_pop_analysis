@@ -82,7 +82,7 @@ run_ipm <- function(params, env_params, locality,
       par_set_indices = list(loc = c("CR", "HK", "KS", "RU")),
       
       evict_cor     = TRUE,
-      evict_fun     = discrete_extrema("g_loc", "stems", n, n)
+      evict_fun     = discrete_extrema("g_loc", "stems", 100, 100)
     ) %>%
     define_kernel(
       name = "F_to_SDL_loc",
@@ -314,12 +314,11 @@ ipm_loop <- function(i, df_env, params,
                     locality = loc,
                     model = df_env$model[i],
                     scenario = df_env$scenario[i],
-                    shading = df_env$shading[i],
-                slope = df_env$slope[i],
-                rock = df_env$rock[i],
-                soil_depth = df_env$soil_depth[i],
-                    lambda = ipmr::lambda(ipm)#,
-                    # all_lambda = paste(ipmr::lambda(ipm, type_lambda = "all"), collapse = ",")
+                    shading = env_params$shading,
+                slope = env_params$slope,
+                rock = env_params$rock,
+                soil_depth = env_params$soil_depth,
+                    lambda = ipmr::lambda(ipm)
                     )
   
   if(save){
