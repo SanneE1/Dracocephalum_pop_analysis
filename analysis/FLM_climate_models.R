@@ -77,13 +77,14 @@ data_t0$rock_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['rock'], 25))
 data_t0$soil_m <- apply(data_t0, 1, function(x) as.integer(c(rep(x['soil_depth'], 25)))) %>% t
 
 formula_parts <- c(
-  tas = "s(lags, by= tas_scaledcovar, bs = 'cs', k = 24)", 
-  pr = "s(lags, by= pr_scaledcovar, bs = 'cs', k = 24)",
-  pet = "s(lags, by= pet_scaledcovar, bs = 'cs', k = 24)",
-  shade = "s(tot_shading_t0, k = 8, bs = 'cs')", 
-  slope = "s(slope, k = 8, bs = 'cs')",
-  rock = "s(rock, k = 8, bs = 'cs')", 
-  soil = "s(soil_depth, k = 8, bs = 'cs')"
+  tas = "s(lags, by= tas_scaledcovar, bs = 'tp', k = 24)", 
+  pr = "s(lags, by= pr_scaledcovar, bs = 'tp', k = 24)",
+  # pet = "s(lags, by= pet_scaledcovar, bs = 'cs', k = 12)",
+  shade = "s(tot_shading_t0, k = 3, bs = 'tp')", 
+  slope = "s(slope, k = 3, bs = 'tp')",
+  rock = "s(rock, k = 3, bs = 'tp')", 
+  soil = "s(soil_depth, k = 3, bs = 'tp')",
+  pr_shade = "ti(lags, tot_shading_t0, by = pr_scaledcovar, bs = 'tp')"
 )
 
 
@@ -105,7 +106,9 @@ clusterExport(cl=cl, c("gam.selection.criteria"))
 surv_data <- data_t1 %>%
   select(survival_t1, ln_stems_t0, population, year_t0, lags, contains("scaledcovar"), 
          tot_shading_t0, slope, rock, soil_depth, tot_shading_m) %>%
-  filter(complete.cases(.))
+  filter(complete.cases(.)) #%>%
+  # mutate(pr_scaledcovar = scale(pr_scaledcovar),
+  #        tot_shading_t0 = scale(tot_shading_t0))
 
 clusterExport(cl=cl, c("surv_data"))
 
@@ -115,48 +118,47 @@ surv_combinations <- generate_combinations(formula_parts) %>%
   paste(base_surv, ., sep = "+")
 
 #FLM models
-# surv_mods <- parLapply(cl,
-#                          surv_combinations,
-#                          function(x) gam(as.formula(x),
-#                                          data=surv_data ,
-#                                          family = binomial(link = "logit"),
-#                                          method="GCV.Cp",
-#                                          gamma=1.4,
-#                                          select = T,
-#                                          na.action = "na.fail")
+# surv_mods <- parLapply(cl, surv_combinations,
+# function(x) gam(as.formula(x),
+#                 data=surv_data ,
+#                 family = binomial(link = "logit"),
+#                 method="GCV.Cp",
+#                 gamma=7,
+#                 select = T,
+#                 na.action = "na.fail")
 # )
 # saveRDS(surv_mods, file = "results/rds/surv_flm_mods.rds")
 surv_mods <- readRDS("results/rds/surv_flm_mods.rds")
 
-surv_select <- parLapply(cl,
-                          surv_mods,
-                          function(x) gam.selection.criteria(mod = x, 
-                                                          response_column =  "survival_t1")) %>%
+surv_select <- parLapply(cl, surv_mods, 
+                        function(x) gam.selection.criteria(mod = x, 
+                                                           response_column =  "survival_t1")) %>%
   bind_rows()
-
 
 View(surv_select)
 
-surv_combinations[c(125,110,74,120,127)]
-
-# plot(mgcViz::getViz(surv_mods[[125]]))
-# plot(mgcViz::getViz(surv_mods[[110]]))
-plot(mgcViz::getViz(surv_mods[[74]]))
-plot(mgcViz::getViz(surv_mods[[120]]))
-# plot(mgcViz::getViz(surv_mods[[127]]))
-
-
-surv_cross <- parLapply(cl, surv_mods[c(74,120)], 
-                        function(x) gam.selection.criteria(mod = x, 
-                                        response_column =  "survival_t1", 
-                                        do.cross.validation = T, subset_length = 10)) %>%
-  bind_rows()
-saveRDS(surv_cross, file = "results/rds/surv_flm_cross.rds")
+# surv_cross <- parLapply(cl, surv_mods[c(118,50,91,93,92,52,53,18)],
+#                         function(x) gam.selection.criteria(mod = x,
+#                                         response_column =  "survival_t1",
+#                                         do.cross.validation = T, subset_length = 10)) %>%
+#   bind_rows()
+# 
+# saveRDS(surv_cross, file = "results/rds/surv_flm_cross.rds")
+surv_cross <- readRDS("results/rds/surv_flm_cross.rds")
 
 View(surv_cross)
-summary(surv_mods[[74]])
 
-saveRDS(surv_mods[[74]], file = "results/rds/surv_flm.rds")
+summary(surv_mods[[18]])
+summary(surv_mods[[93]])
+summary(surv_mods[[52]])
+
+
+plot(mgcViz::getViz(surv_mods[[18]]))
+plot(mgcViz::getViz(surv_mods[[93]]))
+plot(mgcViz::getViz(surv_mods[[52]]))
+
+
+saveRDS(surv_mods[[18]], file = "results/rds/surv_flm.rds")
 
 
 ## -------------------------------------------------------
@@ -173,7 +175,7 @@ clusterExport(cl=cl, c("growth_data"))
 
 # Basemodel
 base_growth <- "ln_stems_t1 ~ ln_stems_t0 + population + s(year_t0, bs = 're')"
-growth_combinations <- generate_combinations(formula_parts) %>%
+growth_combinations <-  generate_combinations(formula_parts) %>%
   paste(base_growth, ., sep = "+")
 
 # #FLM models
@@ -182,7 +184,7 @@ growth_combinations <- generate_combinations(formula_parts) %>%
 #                       function(x) gam(as.formula(x),
 #                                       data=growth_data,
 #                                       method="GCV.Cp",
-#                                       gamma=1.4,
+#                                       gamma=7,
 #                                       select = T,
 #                                       na.action = "na.fail")
 #   )
@@ -197,29 +199,24 @@ growth_select <- parLapply(cl,
 
 View(growth_select)
 
-growth_combinations[c(122,104,127,123,67,101)]
-
-# plot(mgcViz::getViz(growth_mods[[122]]))
-plot(mgcViz::getViz(growth_mods[[104]]))
-# plot(mgcViz::getViz(growth_mods[[127]]))
-# plot(mgcViz::getViz(growth_mods[[123]]))
-plot(mgcViz::getViz(growth_mods[[67]]))
-# plot(mgcViz::getViz(growth_mods[[101]]))
-
-growth_cross <- parLapply(cl,
-                           growth_mods[c(104, 67)],
-                           function(x) gam.selection.criteria(mod = x,
-                                                              response_column =  "ln_stems_t1",
-                                                              do.cross.validation = T, subset_length = 10)
-) %>% bind_rows()
-saveRDS(growth_cross, file = "results/rds/growth_flm_cross.rds")
+# growth_cross <- parLapply(cl,
+#                            growth_mods[c(28,63,108,119,124,127,97,123,62,96)],
+#                            function(x) gam.selection.criteria(mod = x,
+#                                                               response_column =  "ln_stems_t1",
+#                                                               do.cross.validation = T, subset_length = 10)
+# ) %>% bind_rows()
+# saveRDS(growth_cross, file = "results/rds/growth_flm_cross.rds")
+growth_cross <- readRDS("results/rds/growth_flm_cross.rds")
 
 View(growth_cross)
 
-summary(growth_mods[[104]])
-summary(growth_mods[[67]])
+summary(growth_mods[[63]])
+summary(growth_mods[[28]])
 
-saveRDS(growth_mods[[67]], file = "results/rds/growth_flm.rds")
+plot(mgcViz::getViz(growth_mods[[63]]))
+plot(mgcViz::getViz(growth_mods[[28]]))
+
+saveRDS(growth_mods[[28]], file = "results/rds/growth_flm.rds")
 
 
 ## -------------------------------------------------------
@@ -246,7 +243,7 @@ flowp_combinations <- generate_combinations(formula_parts) %>%
 #                                          data=flowp_data ,
 #                                          family = binomial(link = "logit"),
 #                                          method="GCV.Cp",
-#                                          gamma=1.4,
+#                                          gamma=7,
 #                                          select = T,
 #                                          na.action = "na.fail")
 # )
@@ -259,40 +256,28 @@ flowp_select <- parLapply(cl,
                           function(x) gam.selection.criteria(mod = x, 
                                                           response_column =  "flower_p_t0")) %>%
   bind_rows()
-
-
 View(flowp_select)
 
-flowp_combinations[c(123,127,117,126,124,125,112,102,105,120,115,87,77)]
-
-plot(mgcViz::getViz(flowp_mods[[123]]))
-# plot(mgcViz::getViz(flowp_mods[[127]]))
-plot(mgcViz::getViz(flowp_mods[[117]]))
-plot(mgcViz::getViz(flowp_mods[[126]]))
-# plot(mgcViz::getViz(flowp_mods[[124]]))
-# plot(mgcViz::getViz(flowp_mods[[125]]))
-plot(mgcViz::getViz(flowp_mods[[112]]))
-# plot(mgcViz::getViz(flowp_mods[[105]]))
-# plot(mgcViz::getViz(flowp_mods[[120]]))
-# plot(mgcViz::getViz(flowp_mods[[115]]))
-plot(mgcViz::getViz(flowp_mods[[87]]))
-plot(mgcViz::getViz(flowp_mods[[77]]))
-
-
-flowp_cross <- parLapply(cl,
-                          flowp_mods[c(123,117,126,112,87,77)],
-                          function(x) gam.selection.criteria(mod = x, 
-                                                             response_column =  "flower_p_t0", 
-                                                             do.cross.validation = T, subset_length = 10)) %>%
-  bind_rows()
-saveRDS(flowp_cross, file = "results/rds/flowp_flm_cross.rds")
+# flowp_cross <- parLapply(cl,
+#                           flowp_mods[c(68,69,105,100,120,30,10)],
+#                           function(x) gam.selection.criteria(mod = x,
+#                                                              response_column =  "flower_p_t0",
+#                                                              do.cross.validation = T, subset_length = 10)) %>%
+#   bind_rows()
+# saveRDS(flowp_cross, file = "results/rds/flowp_flm_cross.rds")
+flowp_cross <- readRDS("results/rds/flowp_flm_cross.rds")
 
 View(flowp_cross)
-summary(flowp_mods[[123]])
-summary(flowp_mods[[112]])
-summary(flowp_mods[[77]])
 
-saveRDS(flowp_mods[[123]], file = "results/rds/flowp_flm.rds")
+summary(flowp_mods[[120]])
+summary(flowp_mods[[69]])
+summary(flowp_mods[[30]])
+summary(flowp_mods[[10]])
+
+plot(mgcViz::getViz(flowp_mods[[30]]))
+plot(mgcViz::getViz(flowp_mods[[10]]))
+
+saveRDS(flowp_mods[[10]], file = "results/rds/flowp_flm.rds")
 
 
 ## -------------------------------------------------------
@@ -313,13 +298,13 @@ seedp_combinations <- generate_combinations(formula_parts) %>%
   paste(base_seedp, ., sep = "+")
 
 #FLM models
-# seedp_mods <- parLapply(cl, 
-#                         seedp_combinations, 
+# seedp_mods <- parLapply(cl,
+#                         seedp_combinations,
 #                         function(x) gam(as.formula(x),
 #                                         data=seedp_data,
 #                                         family = binomial(link = "logit"),
 #                                         method="GCV.Cp",
-#                                         gamma=1.4,
+#                                         gamma=7,
 #                                         select = T,
 #                                         na.action = "na.fail")
 # )
@@ -335,31 +320,26 @@ seedp_select <- parLapply(cl,
 View(seedp_select)
 
 
-seedp_combinations[c(126,75,100,120,79,77,66,36)]
-# plot(mgcViz::getViz(seedp_mods[[126]]))
-# plot(mgcViz::getViz(seedp_mods[[75]]))
-plot(mgcViz::getViz(seedp_mods[[100]]))
-# plot(mgcViz::getViz(seedp_mods[[120]]))
-# plot(mgcViz::getViz(seedp_mods[[79]]))
-# plot(mgcViz::getViz(seedp_mods[[77]]))
-plot(mgcViz::getViz(seedp_mods[[66]]))
-# plot(mgcViz::getViz(seedp_mods[[36]]))
-plot(mgcViz::getViz(seedp_mods[[49]]))
-
-seedp_cross <- parLapply(cl,
-                          seedp_mods[c(100,66,49)],
-                          function(x) gam.selection.criteria(mod = x, 
-                                                             response_column =  "seed_p_t0", 
-                                                             do.cross.validation = T, subset_length = 10)) %>%
-  bind_rows()
-
-saveRDS(seedp_cross, file = "results/rds/seedp_flm_cross.rds")
+# seedp_cross <- parLapply(cl,
+#                           seedp_mods[c(124, 72, 108, 106, 103, 123, 68, 31, 65, 30, 8)],
+#                           function(x) gam.selection.criteria(mod = x,
+#                                                              response_column =  "seed_p_t0",
+#                                                              do.cross.validation = T, subset_length = 10)) %>%
+#   bind_rows()
+# saveRDS(seedp_cross, file = "results/rds/seedp_flm_cross.rds")
+seedp_cross <- readRDS("results/rds/seedp_flm_cross.rds")
 
 View(seedp_cross)
 
-summary(seedp_mods[[49]])
+summary(seedp_mods[[31]])
+summary(seedp_mods[[65]])
+summary(seedp_mods[[30]])
 
-saveRDS(seedp_mods[[49]], file = "results/rds/seedp_flm.rds")
+plot(mgcViz::getViz(flowp_mods[[31]]))
+plot(mgcViz::getViz(flowp_mods[[65]]))
+plot(mgcViz::getViz(flowp_mods[[30]]))
+
+saveRDS(seedp_mods[[31]], file = "results/rds/seedp_flm.rds")
 
 ## -------------------------------------------------------
 ## Seed numbers
@@ -380,13 +360,13 @@ seedn_combinations <- generate_combinations(formula_parts) %>%
   paste(base_seedn, ., sep = "+")
 
 #FLM models
-# seedn_mods <- parLapply(cl, 
-#                         seedn_combinations, 
+# seedn_mods <- parLapply(cl,
+#                         seedn_combinations,
 #                         function(x) gam(as.formula(x),
 #                                         data=seedn_data,
 #                                         family = Gamma(link = "log"),
 #                                         method="GCV.Cp",
-#                                         gamma=1.4,
+#                                         gamma=7,
 #                                         select = T,
 #                                         na.action = "na.fail")
 # )
@@ -398,35 +378,37 @@ seedn_select <- parLapply(cl,
                          function(x) gam.selection.criteria(mod = x, 
                                                          response_column =  "est_seed_n_t0")) %>%
   bind_rows()
-
 View(seedn_select)
 
-seedn_combinations[c(118,91,92,50,106,124,119,95,96,56)]
-# plot(mgcViz::getViz(seedn_mods[[118]]))
-plot(mgcViz::getViz(seedn_mods[[91]]))
-# plot(mgcViz::getViz(seedn_mods[[92]]))
-plot(mgcViz::getViz(seedn_mods[[50]]))
-plot(mgcViz::getViz(seedn_mods[[106]]))
-# plot(mgcViz::getViz(seedn_mods[[124]]))
-# plot(mgcViz::getViz(seedn_mods[[119]]))
-plot(mgcViz::getViz(seedn_mods[[95]]))
-# plot(mgcViz::getViz(seedn_mods[[96]]))
-plot(mgcViz::getViz(seedn_mods[[56]]))
 
+# seedn_cross <- parLapply(cl,
+#                           seedn_mods[c(87, 49, 46, 122, 17, 
+#                           90, 107, 14, 120, 15, 
+#                           85, 84, 66, 29, 102, 
+#                           71, 45, 44,114,124,
+#                           127,104,2,73,64,
+#                           72,103,16,18,51,8)],
+#                           function(x) gam.selection.criteria(mod = x,
+#                                                              response_column =  "est_seed_n_t0",
+#                                                              do.cross.validation = T)) %>%
+#   bind_rows()
+# saveRDS(seedn_cross, file = "results/rds/seedn_flm_cross.rds")
+seedn_cross <- readRDS("results/rds/seedn_flm_cross.rds")
 
-seedn_cross <- parLapply(cl,
-                          seedn_mods[c(91,50,106,95,56)],
-                          function(x) gam.selection.criteria(mod = x, 
-                                                             response_column =  "est_seed_n_t0", 
-                                                             do.cross.validation = T)) %>%
-  bind_rows()
-saveRDS(seedn_cross, file = "results/rds/seedn_flm_cross.rds")
 
 View(seedn_cross)
 
-summary(seedn_mods[[91]])
+summary(seedn_mods[[127]])
+summary(seedn_mods[[120]])
+summary(seedn_mods[[102]])
+summary(seedn_mods[[14]])
+summary(seedn_mods[[49]])
+summary(seedn_mods[[2]])
 
-saveRDS(seedn_mods[[91]], file = "results/rds/seedn_flm.rds")
+plot(mgcViz::getViz(seedn_mods[[14]]))
+plot(mgcViz::getViz(seedn_mods[[2]]))
+
+saveRDS(seedn_mods[[2]], file = "results/rds/seedn_flm.rds")
 
 ## -------------------------------------------------------
 ## Save results

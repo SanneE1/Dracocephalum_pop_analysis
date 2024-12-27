@@ -15,7 +15,6 @@ library(forecast)
 
 # setwd(args[1])
 
-# source("R/functions_ipmr.R")
 source("R/functions_ibm.R")
 source("R/functions_ipmr.R")
 
@@ -51,6 +50,8 @@ hist_clim <- readRDS("results/rds/ARIMA_clim_mods.rds")$clim_hist_model %>%
 VR_FLM <- readRDS("results/rds/VR_FLM.rds")
 state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 
+demo_data <- read.csv("data/Dracocephalum_with_vital_rates.csv") 
+
 params <- list(
   surv_mod = VR_FLM$surv,
   
@@ -59,10 +60,10 @@ params <- list(
   
   pflower_mod = VR_FLM$flower_p,
   
-  pabort_mod = VR_FLM$abort_p,
+  pseed_mod = VR_FLM$seedp,
   
-  nseed_mod = VR_FLM$n_seeds,
-  nseed_sd = sd(resid(VR_FLM$n_seeds)),
+  nseed_mod = VR_FLM$seedn,
+  nseed_sd = sd(resid(VR_FLM$seedn)),
   
   seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
   seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
@@ -74,7 +75,11 @@ params <- list(
   sdl_surv_mean = boot::inv.logit(fixef(state_independent_variables$sdl_surv)),
 
   sdl_d_int = lme4::fixef(state_independent_variables$sdl_size_d)[1],
-  sdl_d_sd = sd(resid(state_independent_variables$sdl_size_d))
+  sdl_d_sd = sd(resid(state_independent_variables$sdl_size_d)),
+  
+  soil_depth = calc_stats(demo_data, "soil_depth"),
+  slope = calc_stats(demo_data, "slope"),
+  rock = calc_stats(demo_data, "rock")
 )
 
 
@@ -102,9 +107,6 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
 shading <- seq(0,6, length.out = 4)
-slope <- seq(0, 50, length.out = 6)
-rock <- seq(0, 80, length.out = 6)
-soil_depth <- seq(0,10, length.out = 6)
 
 model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
 scenario <- c("rcp45", "rcp85")
@@ -112,9 +114,6 @@ scenario <- c("rcp45", "rcp85")
 
 df_env <- expand.grid(localities = localities, 
                       shading = shading, 
-                      slope = 25,
-                      rock = 30,
-                      soil_depth = 5,
                       scenario = scenario,
                       model = model
 ) %>% 
@@ -122,51 +121,61 @@ df_env <- expand.grid(localities = localities,
         expand.grid(
           localities = localities, 
           shading = shading,  
-          slope = 25,
-          rock = 30,
-          soil_depth = 5,
           scenario = NA,
           model = "No change"
         )) %>% 
   mutate(localities = as.character(localities)) 
 
-df_env <- df_env[rep(1:nrow(df_env), 30),] %>% rowid_to_column()
+df_env <- df_env[rep(1:nrow(df_env), 100),] %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------
 ## IBM
 ## -------------------------------------------------------------------------------------------
+gc()
 print("start ibm")
-### Set up parallel
-cl <- makeCluster(detectCores() - 2, outfile = "")
-# cl <- makeForkCluster(outfile = "")
+### Set up parallel    --------------------- For some reason not working. Easier right now to just let lapply run overnight
+# cl <- makeCluster(2, outfile = "")
+# # cl <- makeForkCluster(outfile = "")
+# 
+# clusterExport(cl=cl, c("df_env", "ibm_ext_p", "yearly_loop", "mod_pred",
+#                        "params", "clim_ts", "hist_clim",
+#                        "pop_vec", "sdl_n",
+#                        "n_it", "lag", "sampling_env"))
+# 
+# clusterEvalQ(cl, {
+#   library(tidyverse)
+#   library(lme4)
+#   library(patchwork)
+#   library(ipmr)
+#   library(mgcv)
+#   library(parallel)
+#   library(forecast) }
+#   )
 
-clusterExport(cl=cl, c("df_env", "ibm_ext_p", "yearly_loop", "mod_pred",
-                       "params", "clim_ts", "hist_clim",
-                       "pop_vec", "sdl_n",
-                       "n_it", "lag", "sampling_env"))
+for(x in c(1:nrow(df_env))) {
+  a <- ibm_ext_p(i = x, df_env = df_env,
+                 params = params,
+                 clim_ts = clim_ts,
+                 clim_hist = hist_clim,
+                 pop_vec = pop_vec,
+                 sdl_n = sdl_n,
+                 n_it = n_it)
+  
+  write.csv(a, paste0("results/imb/df_", x, ".csv"))
+  
+}
+# 
+# df <- lapply(as.list(c(1:nrow(df_env))),
+#                   function(x) ibm_ext_p(i = x, df_env = df_env,
+#                                                  params = params,
+#                                                  clim_ts = clim_ts,
+#                                                  clim_hist = hist_clim,
+#                                                  pop_vec = pop_vec,
+#                                                  sdl_n = sdl_n,
+#                                                  n_it = n_it)) %>%
+#   bind_rows()
 
-clusterEvalQ(cl, c(library("dplyr"), library("forecast")))
-
-df <- parLapply(cl=cl,
-                as.list(c(1:nrow(df_env))),
-                  function(x) ibm_ext_p(i = x, df_env = df_env,
-                                                 params = params, 
-                                                 clim_ts = clim_ts,
-                                                 clim_hist = hist_clim,
-                                                 pop_vec = pop_vec,
-                                                 sdl_n = sdl_n,
-                                                 n_it = n_it)) %>% 
-  bind_rows()
-
-stopCluster(cl)
+# stopCluster(cl)
 
 saveRDS(df, file = "results/rds/extinction_probability.rds")
-
-
-rm(list = ls())
-
-
-
-
-
 
