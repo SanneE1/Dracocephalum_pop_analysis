@@ -1,3 +1,7 @@
+library(tidyverse)
+library(mgcv)
+library(patchwork)
+
 ### Script to plot results
 rm(list = ls())
 set.seed(2)
@@ -7,69 +11,28 @@ set.seed(2)
 ## Vital rates
 ## --------------------------------------------------------------------
 source("R/functions_GAM.R")
-lag = 24
+
 vr <- readRDS("results/rds/VR_FLM.rds")
 
-surv <- plot_spline_coeff(best_model = vr$surv,
-                          lag = lag,
-                          pet = T, shade = T,
-                          vital_rate = "Survival")
+plot_response_size(best_model = vr$surv, vital_rate = "survival")
+plot_response_size(best_model = vr$growth, vital_rate = "growth")
+plot_response_size(best_model = vr$flower_p, vital_rate = "flower probability")
+plot_response_size(best_model = vr$seedp, vital_rate = "seed probability")
+plot_response_size(best_model = vr$seedn, vital_rate = "Seed numbers")
 
-growth <- plot_spline_coeff(best_model = vr$growth,
-                            lag = lag,
-                            pr = T, shade = T,
-                            vital_rate = "Growth")
 
-flowp <- plot_spline_coeff(best_model = vr$flower_p,
-                           lag = lag,
-                           pet = T, shade = T,
-                           vital_rate = "Flower Probability") 
 
-abp <- plot_spline_coeff(best_model = vr$abort_p,
-                         lag = lag,
-                         pr = T, shade = T,
-                         vital_rate = "Seed Probability")
 
-nseeds <- plot_spline_coeff(best_model = vr$n_seeds,
-                            lag = lag,
-                            pet = T, shade = T,
-                            vital_rate = "Number of Seeds")
 
-vr_plot <- surv + growth + flowp + 
-  (abp + scale_y_continuous(trans = ggallin::pseudolog10_trans, 
-                            breaks = c(-1000,-100,-10,-1,
-                                       1,10,100,1000))) + 
-  nseeds + guide_area() +
-  plot_layout(ncol = 2, byrow = T, guides = "collect") + plot_annotation(tag_levels = "A") & 
-  theme(legend.position = "bottom", legend.direction = "vertical",
-        text = element_text(size = 12))
-
-ggsave(vr_plot, filename = "results/vitalrate_plot.png", 
-       width = 7, height = 7)
-
-## --------------------------------------------------------------------
-## Deterministic IPMs
-## --------------------------------------------------------------------
-det_ipm <- readRDS("results/rds/deterministic_ipm.rds")
-
-ind_lambdas <- ggplot(det_ipm$individual_lambdas %>% mutate(year_t0 = as.integer(year_t0))) + 
-  geom_point(aes(x = year_t0, y = lambda, colour = locality), size = 2) +
-  scale_x_continuous(breaks = seq(2003,2020, 2), name = NULL) +
-  ylab("population growth rate") +
-  theme(axis.text.x = element_text(size = 12, angle = 45),
-        axis.text.y = element_text(size = 12), 
-        axis.title.y = element_text(size = 12),
-        legend.position = "bottom")
-
-ggsave(ind_lambdas, filename = "results/individual_lambdas.tiff",
-       width = 7, height = 3.5, dpi = 300)
+# ggsave(vr_plot, filename = "results/vitalrate_plot.png", 
+#        width = 7, height = 7)
 
 
 ## --------------------------------------------------------------------
 ## Stochastic simulations
 ## --------------------------------------------------------------------
 
-files <- list.files("results/ipm_stoch_individual_files/", full.names = T)
+files <- list.files("results/stoch_ipms/", full.names = T)
 
 df <- lapply(files, read.csv) %>% bind_rows
 
@@ -247,9 +210,10 @@ df <- readRDS(file = "results/rds/extinction_probability.rds") %>%
 
 df$scenario[which(df$model == "No change")] <- "Historical"
 df$scenario <- factor(df$scenario, levels = c("Historical", "rcp45", "rcp85"))
-
 df <- df %>%
   mutate(model = factor(gsub("No change", "Historical", model), levels = c("Historical", "CESM1", "CMCC", "MIROC5", "ACCESS1")))
+df$clim_type <- factor(ifelse(df$model == "Historical", "Historical", "Climate Change"), 
+                       levels = c("Historical", "Climate Change"))
 
 names(df$pop_size) <- paste(df$locality, df$model, df$scenario, c(1:nrow(df)), sep = "_")
 
@@ -286,48 +250,58 @@ ext <- ext_pl %>% cbind(.,
                         pop_size_sdl = ext_sdl$pop_size_sdl, 
                         pop_size_sb1 = ext_sb1$pop_size_sb1, 
                         pop_size_sb2 = ext_sb2$pop_size_sb2) %>%
-  mutate(below_ext_size = ifelse(pop_size_plant < 10, T, F)) 
+  mutate(below_ext_size = ifelse(pop_size_plant < 10, T, F),
+         clim_type = factor(ifelse(model == "Historical", "Historical", "Climate Change"), 
+                            levels = c("Historical", "Climate Change"))) 
+
 rm(ext_pl, ext_sdl, ext_sb1, ext_sb2)
 
 
 ## Actual plotting
 pop_sizes <- pop_dyn_plot(ext)
+pop_sizes_type <- pop_type_plot(ext)
 ext_years <- ext_yr_plot(df)
+ext_years_type <- ext_type_plot(df)
 
 wrap_plots(pop_sizes, guides = "collect")
 wrap_plots(ext_years, guides = "collect")
-
+wrap_plots(ext_years_type, guides = "collect", ncol = 4, byrow = F)
 
 pop_size_all <- ggplot(ext %>%
                          filter(scenario != "rcp85")) +
   geom_line(aes(x = year,
                 y = pop_size_plant,
                 colour = shading,
-                group = rowid), alpha = 0.5) +
+                group = rowid), alpha = 0.05) +
+  geom_smooth(aes(x = year,
+                  y = pop_size_plant,
+                  colour = shading)) +
   geom_hline(aes(yintercept = 10)) +
   viridis::scale_color_viridis(option = "D", discrete = T, direction = -1) +
   facet_grid(rows = vars(locality), cols = vars(model), scales = "free") +
   xlab("Simulation year") + ylab("Population size")
 
 pop_size_MS <- ggplot(ext %>%
-                        filter(model %in% c("Historical", "CMCC") &
-                                 scenario != "rcp85")) +
+                        filter(scenario != "rcp85")) +
   geom_line(aes(x = year,
                 y = pop_size_plant,
                 colour = shading,
-                group = rowid), alpha = 0.5) +
+                group = rowid), alpha = 0.05) +
+  geom_smooth(aes(x = year,
+                  y = pop_size_plant,
+                  colour = shading)) +
   geom_hline(aes(yintercept = 10)) +
   viridis::scale_color_viridis(option = "D", discrete = T, direction = -1) +
-  facet_grid(rows = vars(locality), cols = vars(model), scales = "free") +
+  facet_grid(rows = vars(locality), cols = vars(clim_type), scales = "free") +
   xlab("Simulation year") + ylab("Population size")
 
+pop_size_MS
 
-
-ggsave(pop_size_all, filename = "results/plot_population_size_ext_simulation.png",
-       width = 11, height = 8, units = "in", dpi = 400, type = "cairo")
-
-ggsave(pop_size_MS, filename = "results/plot_population_size_ext_simulation_MS.png",
-       width = 7, height = 8, units = "in", dpi = 400, type = "cairo")
+# ggsave(pop_size_all, filename = "results/plot_population_size_ext_simulation.png",
+#        width = 11, height = 8, units = "in", dpi = 400, type = "cairo")
+# 
+# ggsave(pop_size_MS, filename = "results/plot_population_size_ext_simulation_MS.png",
+#        width = 7, height = 8, units = "in", dpi = 400, type = "cairo")
 
 
 
@@ -370,9 +344,10 @@ MS_size_box <- (pop_sizes[[5]] + ggtitle("Historical climate") + annotation_cust
                                              breaks = NULL, labels = NULL))
 ) + plot_layout(guides = "collect", ncol = 2, byrow = T)
 
+MS_size_box
 
-ggsave(MS_size_box, filename = "results/plot_population_size_ext_box.png",
-       width = 9, height = 11, units = "in", dpi = 400, type = "cairo")
+# ggsave(MS_size_box, filename = "results/plot_population_size_ext_box.png",
+#        width = 9, height = 11, units = "in", dpi = 400, type = "cairo")
 
 
 
