@@ -151,8 +151,26 @@ print("start ibm")
 #   library(parallel)
 #   library(forecast) }
 #   )
+#   
+# 
+# df <- ParLapply(cl,
+#                 as.list(c(1:nrow(df_env))),
+#                 function(x) ibm_ext_p(i = x, df_env = df_env,
+#                                                  params = params,
+#                                                  clim_ts = clim_ts,
+#                                                  clim_hist = hist_clim,
+#                                                  pop_vec = pop_vec,
+#                                                  sdl_n = sdl_n,
+#                                                  n_it = n_it)) %>%
+#   bind_rows()
+# stopCluster(cl)
+# saveRDS(df, file = "results/rds/extinction_probability.rds")
 
-for(x in c(1:nrow(df_env))) {
+# Running with for loop as lapply sometimes crashes on local laptop, 
+# this way it saves progress to rds files and I can restart if needed
+# from where it crashed
+
+for(x in c(2228:nrow(df_env))) {
   a <- ibm_ext_p(i = x, df_env = df_env,
                  params = params,
                  clim_ts = clim_ts,
@@ -161,21 +179,20 @@ for(x in c(1:nrow(df_env))) {
                  sdl_n = sdl_n,
                  n_it = n_it)
   
-  write.csv(a, paste0("results/imb/df_", x, ".csv"))
-  
-}
-# 
-# df <- lapply(as.list(c(1:nrow(df_env))),
-#                   function(x) ibm_ext_p(i = x, df_env = df_env,
-#                                                  params = params,
-#                                                  clim_ts = clim_ts,
-#                                                  clim_hist = hist_clim,
-#                                                  pop_vec = pop_vec,
-#                                                  sdl_n = sdl_n,
-#                                                  n_it = n_it)) %>%
-#   bind_rows()
 
-# stopCluster(cl)
+  saveRDS(a, file = paste0("results/ibm/df_", x, ".rds"))
+  gc()
+}
+
+df_list <- list.files("results/ibm/", full.names = T) 
+df <- lapply(df_list, readRDS) %>% bind_rows
+
 
 saveRDS(df, file = "results/rds/extinction_probability.rds")
+
+
+
+
+
+
 
