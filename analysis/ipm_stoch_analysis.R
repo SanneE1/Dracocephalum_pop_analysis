@@ -1,8 +1,8 @@
 ## This script calculates lambda for different environmental variable levels
 ## under asymptotic behaviour (i.e. long run simulations)
 
-# args = commandArgs(trailingOnly = T)
-# setwd(args[2])
+args = commandArgs(trailingOnly = T)
+setwd(args[2])
 
 library(dplyr)
 library(lme4)
@@ -156,42 +156,39 @@ rep <- rep(c(1:nrow(df_env)), 10)
 # ### Set up parallel
 # 
 # Local machine
-cl <- makeCluster(detectCores()-1)
-# Bash runs
-# cl <- makeForkCluster(outfile = "")
-
-clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
-                       "params", "climate_models", "rep",
-                       "U", "L", "n", "n_it", "lag",
-                       "sampling_env", "FLM_clim_predict"))
-
-clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
-
-df <- clusterApplyLB(cl,
-                  as.list(c(76:length(rep))),
-                  function(x) tryCatch(ipm_loop(i = rep[x], df_env = df_env,
-                                                params = params,
-                                                climate_models = climate_models,
-                                                n_it = n_it,
-                                                U = U, L = L, n = n,
-                                                save = T),
-                                       error = function(e) NULL)) %>%
-  bind_rows()
-
-stopCluster(cl)
-
-write.csv(df, file = "results/overview_lambda_env_levels.csv",
-          row.names = F)
-
+# cl <- makeCluster(detectCores()-1)
+# 
+# clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
+#                        "params", "climate_models", "rep",
+#                        "U", "L", "n", "n_it", "lag",
+#                        "sampling_env", "FLM_clim_predict"))
+# 
+# clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
+# 
+# df <- clusterApply(cl,
+#                   as.list(c(76:length(rep))),
+#                   function(x) tryCatch(ipm_loop(i = rep[x], df_env = df_env,
+#                                                 params = params,
+#                                                 climate_models = climate_models,
+#                                                 n_it = n_it,
+#                                                 U = U, L = L, n = n,
+#                                                 save = T),
+#                                        error = function(e) NULL)) %>%
+#   bind_rows()
+# 
+# stopCluster(cl)
+# 
+# write.csv(df, file = "results/overview_lambda_env_levels.csv",
+#           row.names = F)
 
 ## Run as an array job
-# taskID <- as.integer(sys.getenv("SLURM_ARRAY_TASK_ID"))
-# 
-# df <- ipm_loop(i = rep[taskID], df_env = df_env,
-# params = params,
-# climate_models = climate_models,
-# n_it = n_it,
-# U = U, L = L, n = n,
-# save = T)
-# 
-# write.csv(df, file = file.path("results", paste0("ipm_stoch_" taskID, ".csv")), row.names = F)
+taskID <- as.integer(sys.getenv("SLURM_ARRAY_TASK_ID"))
+
+df <- ipm_loop(i = rep[taskID], df_env = df_env,
+               params = params,
+               climate_models = climate_models,
+               n_it = n_it,
+               U = U, L = L, n = n,
+               save = T)
+
+write.csv(df, file = file.path("results", "ipm", paste0("ipm_stoch_", taskID, ".csv")), row.names = F)

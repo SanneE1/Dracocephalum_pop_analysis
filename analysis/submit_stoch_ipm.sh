@@ -1,27 +1,29 @@
 #!/bin/bash
 
-#SBATCH -D /work/evers/
+#SBATCH -D /datos_severs/Dracocephalum_pop_analysis/
 
-#SBATCH -o /work/%u/%x-%A.log
+#SBATCH -o /datos_severs/Dracocephalum_pop_analysis/results/%x-%A_%a.log
 
 #Specify job name
 #SBATCH -J Draco_ipm
 
+# N of array jobs
+#SBATCH --array=1-1530
+
 #Resources
 # max running time
-#SBATCH -t 1:30:00
 
 # memory per core (hard limit)
 #SBATCH --mem-per-cpu=2G
 
 # create output direcotry per job
-OUTPUT_DIR="/work/$USER/$SLURM_JOB_NAME-$SLURM_ARRAY_JOB_ID"
+OUTPUT_DIR="/datos_severs/Dracocephalum_pop_analysis/results/$SLURM_JOB_NAME-$SLURM_ARRAY_JOB_ID"
 mkdir -p $OUTPUT_DIR
 
 # Load modules
-module load foss/2019b R/4.0.0-2
+# module load foss/2019b R/4.0.0-2
 
-setwd="/gpfs0/home/evers/Dracocephalum_pop_analysis/"
+setwd="/datos_severs/Dracocephalum_pop_analysis/"
 
 Rscript --vanilla "$HOME"/Dracocephalum_pop_analysis/analysis/ipm_stoch_analysis.R \
 "$OUTPUT_DIR" \
