@@ -69,8 +69,8 @@ data <- raw_data_long_format %>%
                               ifelse(stage_t0 == "dead" & stage_t1 == "dead", NA, 0)),
          flower_p_t0 = ifelse(n_fl_stems_t0 > 0, 1, 0),
          flower_p_t1 = ifelse(n_fl_stems_t1 > 0, 1, 0),
-         seed_p_t0 = ifelse(av_seeds_n_t0 == 0 | is.na(av_seeds_n_t0), 0, 1),
          est_seed_n_t0 = av_seeds_n_t0 * n_fl_stems_t0,
+         seed_p_t0 = ifelse(est_seed_n_t0 == 0 | is.na(est_seed_n_t0), 0, 1),
          ln_stems_t0 = log(n_fl_stems_t0 + n_veg_stems_t0),
          ln_stems_t1 = log(n_fl_stems_t1 + n_veg_stems_t1)) %>%
   dplyr::select(plant_ID, population, year_t0, soil_depth, rock, slope,
