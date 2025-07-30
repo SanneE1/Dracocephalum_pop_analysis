@@ -53,16 +53,17 @@ yearly_loop <- function(yr, clim, locality,
                                                params = params, locality = locality, 
                                                clim = clim_yr), 
                  size = 1)
-  # message(paste("total pop:", Npop, " | N surviving:", sum(surv)))
+  
   
   # estimate size for surviving individuals
   z1 <- rep(NA, Npop)
-  z1[which(surv == 1)] <- rnorm(n = length(which(surv == 1)),
+  if (sum(surv) > 0) {
+    z1[which(surv == 1)] <- rnorm(n = length(which(surv == 1)),
                                 mean = mod_pred(indi = indi[which(surv == 1),], model = params$grow_mod,
                                                 params = params, locality = locality, 
                                                 clim = clim_yr),
                                 sd = params$grow_sd)
-  
+  }
   indi_z1 <- indi %>%
     mutate(surv = surv, 
            z1 = z1)
