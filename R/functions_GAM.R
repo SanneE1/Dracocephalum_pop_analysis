@@ -70,6 +70,81 @@ climate_wider_for_gam <- function(clim_data, demo_data, variables, response_t1 =
   return(lagged_climate)
 }
 
+plot_response_size <- function(best_model, 
+                               vital_rate, 
+                               save_plot = F
+) {
+  
+  size_range <- seq(min(best_model$model$ln_stems_t0),max(best_model$model$ln_stems_t0), length.out = 10)
+  shading_range <- seq(0,6, length.out = 4)
+  slope_range <- seq(0, 50, length.out = 6)
+  rock_range <- seq(0, 80, length.out = 6)
+  soil_range <- seq(0,10, length.out = 6)
+  
+  pred.data <- expand.grid(ln_stems_t0=size_range,
+                           population = factor("CR"),
+                           year_t0 = 2018,
+                           soil_depth = soil_range,
+                           rock = rock_range,
+                           slope = slope_range,
+                           tot_shading_t0 = shading_range)
+  pred.data$lags <- matrix(c(1:25), nrow = nrow(pred.data), ncol = 25, byrow = T)
+  pred.data$pet_scaledcovar <- matrix(0, nrow = nrow(pred.data), ncol = 25, byrow = T)
+  pred.data$pr_scaledcovar <- matrix(0, nrow = nrow(pred.data), ncol = 25, byrow = T)
+  pred.data$tas_scaledcovar <- matrix(0, nrow = nrow(pred.data), ncol = 25, byrow = T)
+  
+  pred.data$predict <- mgcv::predict.gam(best_model, newdata=pred.data, type="response")
+  
+  plot_zero_clim <- ggplot() +
+    geom_smooth(data = pred.data, aes(x = ln_stems_t0, y = predict)) +
+    xlab("size (ln_stems)") + ylab("response") + ggtitle(vital_rate) +
+    theme(legend.position = "bottom")
+  
+  clim_mods <- readRDS("results/rds/ARIMA_clim_mods.rds") 
+  
+  clim_sim_hist <- lapply(clim_mods$clim_hist_model, function(x)
+    simulate(x, nsim = ((40 * 12) + (3*24))) %>%
+      ts(., start= c(2023,1), frequency = 12))
+  
+  ### get values for window function
+  mon <- seq(from = 0, to = 0.95, length.out = 12)
+  clim_df <- tibble(pet = matrix(0, nrow = 30, ncol = 25),
+                    pr = matrix(0, nrow = 30, ncol = 25),
+                    tas = matrix(0, nrow = 30, ncol = 25))
+  for(i in c(1:30)){
+    end <- (2023 + i) + mon[7]
+    start <- end - (1/12 * 25)
+    
+    clim_df$pet[i,] <- rev(as.numeric(window(clim_sim_hist$Cr.pet_scaled, start, end))) %>%
+      matrix(., nrow = 1, ncol = 25, byrow = T)
+    clim_df$pr[i,] <- rev(as.numeric(window(clim_sim_hist$Cr.pr_scaled, start, end))) %>%
+      matrix(., nrow = 1, ncol = 25, byrow = T)
+    clim_df$tas[i,] <- rev(as.numeric(window(clim_sim_hist$Cr.tas_scaled, start, end))) %>%
+      matrix(., nrow = 1, ncol = 25, byrow = T)
+    
+  }
+  
+  pred.data1 <- expand.grid(ln_stems_t0=size_range,
+                           population = factor("CR"),
+                           year_t0 = 2018,
+                           soil_depth = soil_range,
+                           rock = rock_range,
+                           slope = slope_range,
+                           tot_shading_t0 = shading_range)
+  pred.data1$lags <- matrix(c(1:25), nrow = nrow(pred.data), ncol = 25, byrow = T)
+  
+  pred.data1 <- merge(pred.data, clim_df, by = NULL)
+  
+  pred.data1$predict <- mgcv::predict.gam(best_model, newdata=pred.data, type="response")
+  
+  plot_range_clim <- ggplot() +
+    geom_smooth(data = pred.data1, aes(x = ln_stems_t0, y = predict)) +
+    xlab("size (ln_stems)") + ylab("response") + ggtitle(vital_rate) +
+    theme(legend.position = "bottom")
+  
+  return(list(zero_clim = plot_zero_clim,
+              range_clim = plot_range_clim))
+}
 
 
 plot_spline_coeff <- function(best_model, 
@@ -81,7 +156,7 @@ plot_spline_coeff <- function(best_model,
 ) {
   
   lags= c(0:lag); ln_stems_t0=1; population = factor("CR")
-
+  
   tas_scaledcovar= 0; pr_scaledcovar = 0; pet_scaledcovar = 0
   tot_shading_t0 = 0; rock = 0; slope = 0; soil_depth = 0
   covar=""; legendtitle = ""
@@ -166,7 +241,7 @@ plot_spline_coeff <- function(best_model,
     viridis::scale_color_viridis(name = legendtitle, option = "D", discrete = T, direction = -1) +  
     xlab(xaxis_title) + ylab(yaxis_title) + ggtitle(vital_rate) +
     theme(legend.position = "bottom")
- 
+  
   if(tas|pr|pet) {
     plot <- plot +
       scale_x_continuous(breaks = seq(from = -1 * (lag), to = 0, by = 6),

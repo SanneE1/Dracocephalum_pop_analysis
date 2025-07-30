@@ -1,15 +1,12 @@
 ### script to run extinction probability analysis
-rm(list = ls())
-
-# getwd()
-
 library(tidyverse)
+library(glmnet)
 library(lme4)
-library(patchwork)
-library(ipmr)
-library(mgcv)
-library(parallel)
-library(forecast)
+# library(patchwork)
+# library(ipmr)
+# library(mgcv)
+# library(parallel)
+# library(forecast)
 
 # args = commandArgs(trailingOnly = T)
 
@@ -20,7 +17,6 @@ source("R/functions_ipmr.R")
 
 # Projections will be from 2022 to 2100
 n_it = 79
-lag = 24
 
 ## -------------------------------------------------------------------------------------------
 ## Format CHELSA's time series for IBM
@@ -29,41 +25,64 @@ lag = 24
 fut_clim <- read.csv("data/CHELSA_future_ts_formatted.csv") %>% 
   filter(complete.cases(.))
 
-clim_ts <- fut_clim %>% 
-  filter(scenario != "historical") %>%
-  dplyr::select(c(locality, model, scenario, month, year, pr_scaled, tas_scaled, pet_scaled)) %>%
-  pivot_longer(., contains("scaled"), values_to = "value", names_to = "variable") %>%
-  split(., list(.$locality, .$model, .$scenario, .$variable)) %>%
-  lapply(., function(x) {
-    x %>% mutate(value = ts(value, frequency = 12 , start = c(2006,1)))
-  })
+clim_spring <- fut_clim %>% 
+  filter(month > 2 & month < 6) %>%
+  mutate(year_t0 = year - 1, .keep = "unused") %>%
+  group_by(locality, year_t0, model, scenario) %>%
+  summarise(pet_spring = mean(pet_scaled, na.rm = T),
+            pr_spring = mean(pr_scaled, na.rm = T),
+            tas_spring = mean(tas_scaled, na.rm = T)) %>%
+  ungroup() 
+clim_summer <- fut_clim %>% 
+  filter(month > 2 & month < 6) %>%
+  rename(year_t0 = year) %>%
+  group_by(locality, year_t0, model, scenario) %>%
+  summarise(pet_summer = mean(pet_scaled, na.rm = T),
+            pr_summer = mean(pr_scaled, na.rm = T),
+            tas_summer = mean(tas_scaled, na.rm = T)) %>%
+  ungroup() 
+clim_dormant <- fut_clim %>% 
+  filter(month < 3 | month > 8) %>%
+  mutate(year_t0 = ifelse(month < 3, year - 1, year)) %>%
+  group_by(locality, year_t0, model, scenario) %>%
+  summarise(pet_dormant = mean(pet_scaled, na.rm = T),
+            pr_dormant = mean(pr_scaled, na.rm = T),
+            tas_dormant = mean(tas_scaled, na.rm = T)) %>%
+  ungroup() 
 
-hist_clim <- readRDS("results/rds/ARIMA_clim_mods.rds")$clim_hist_model %>%
-  lapply(., function(x)
-    simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
-      ts(., start= c(2019,1), frequency = 12))
+fut_clim <- left_join(clim_spring, clim_summer)
+fut_clim <- left_join(fut_clim, clim_dormant)
+
 
 ## -------------------------------------------------------------------------------------------
 ## Other variables for IBM
 ## -------------------------------------------------------------------------------------------
 
-VR_FLM <- readRDS("results/rds/VR_FLM.rds")
+VR_mods <- list(surv = readRDS("results/rds/seasons_surv.rds"),
+                growth = readRDS("results/rds/seasons_growth.rds"),
+                flower_p = readRDS("results/rds/seasons_flowp.rds"),
+                seedp = readRDS("results/rds/seasons_seedp.rds"),
+                seedn = readRDS("results/rds/seasons_seedn.rds")
+)
+
 state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 
-demo_data <- read.csv("data/Dracocephalum_with_vital_rates.csv") 
+demo_data <- read.csv("data/Dracocephalum_with_vital_rates.csv") %>%
+  mutate(herb_shading_t0 = scale(herb_shading_t0),
+         shrub_shading_t0 = scale(shrub_shading_t0))
 
 params <- list(
-  surv_mod = VR_FLM$surv,
+  surv_mod = VR_mods$surv,
   
-  grow_mod = VR_FLM$growth,
-  grow_sd = sd(resid(VR_FLM$growth)),
+  grow_mod = VR_mods$growth,
+  grow_sd = readRDS(file = "results/rds/seasons_growth_sd.rds"),
   
-  pflower_mod = VR_FLM$flower_p,
+  pflower_mod = VR_mods$flower_p,
   
-  pseed_mod = VR_FLM$seedp,
+  pseed_mod = VR_mods$seedp,
   
-  nseed_mod = VR_FLM$seedn,
-  nseed_sd = sd(resid(VR_FLM$seedn)),
+  nseed_mod = VR_mods$seedn,
+  nseed_sd = readRDS(file = "results/rds/seasons_seedn_sd.rds"),
   
   seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
   seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
@@ -73,13 +92,18 @@ params <- list(
   germ_mean = mean(state_independent_variables$est_germination_rate$germ),     
   
   sdl_surv_mean = boot::inv.logit(fixef(state_independent_variables$sdl_surv)),
-
+  
   sdl_d_int = lme4::fixef(state_independent_variables$sdl_size_d)[1],
   sdl_d_sd = sd(resid(state_independent_variables$sdl_size_d)),
   
   soil_depth = calc_stats(demo_data, "soil_depth"),
   slope = calc_stats(demo_data, "slope"),
-  rock = calc_stats(demo_data, "rock")
+  rock = calc_stats(demo_data, "rock"),
+  
+  herb_center = attr(demo_data$herb_shading_t0, "scaled:center"),
+  herb_scale = attr(demo_data$herb_shading_t0, "scaled:scale"),
+  shrub_center = attr(demo_data$shrub_shading_t0, "scaled:center"),
+  shrub_scale = attr(demo_data$shrub_shading_t0, "scaled:scale")
 )
 
 
@@ -93,7 +117,7 @@ pop_n <- list(CR = 45,
               RU = 43
 )
 
-pop_vec <- lapply(data, function(x) (x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0) %>%
+pop_vec_start <- lapply(data, function(x) (x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0) %>%
   purrr::map2(., pop_n, ~ rep(.x, round(.y/length(.x),0)))
 
 sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
@@ -106,89 +130,47 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- seq(0,6, length.out = 4)
+shrub_shading <- seq(0,6, length.out = 4)
+herb_shading <- seq(0,6, length.out = 4)
 
-model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
+model <- c("ACCESS1-3", "CESM1-BGC", "CMCC-CM", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
 
 df_env <- expand.grid(localities = localities, 
-                      shading = shading, 
+                      shrub_shading = shrub_shading, 
+                      herb_shading = herb_shading,
                       scenario = scenario,
                       model = model
-) %>% 
-  rbind(.,
-        expand.grid(
-          localities = localities, 
-          shading = shading,  
-          scenario = NA,
-          model = "No change"
-        )) %>% 
-  mutate(localities = as.character(localities)) 
+) 
 
-df_env <- df_env[rep(1:nrow(df_env), 100),] %>% rowid_to_column()
+df_env <- df_env %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------
 ## IBM
 ## -------------------------------------------------------------------------------------------
 gc()
 print("start ibm")
-### Set up parallel    --------------------- For some reason not working. Easier right now to just let lapply run overnight
-# cl <- makeCluster(2, outfile = "")
-# # cl <- makeForkCluster(outfile = "")
-# 
-# clusterExport(cl=cl, c("df_env", "ibm_ext_p", "yearly_loop", "mod_pred",
-#                        "params", "clim_ts", "hist_clim",
-#                        "pop_vec", "sdl_n",
-#                        "n_it", "lag", "sampling_env"))
-# 
-# clusterEvalQ(cl, {
-#   library(tidyverse)
-#   library(lme4)
-#   library(patchwork)
-#   library(ipmr)
-#   library(mgcv)
-#   library(parallel)
-#   library(forecast) }
-#   )
-#   
-# 
-# df <- ParLapply(cl,
-#                 as.list(c(1:nrow(df_env))),
-#                 function(x) ibm_ext_p(i = x, df_env = df_env,
-#                                                  params = params,
-#                                                  clim_ts = clim_ts,
-#                                                  clim_hist = hist_clim,
-#                                                  pop_vec = pop_vec,
-#                                                  sdl_n = sdl_n,
-#                                                  n_it = n_it)) %>%
-#   bind_rows()
-# stopCluster(cl)
-# saveRDS(df, file = "results/rds/extinction_probability.rds")
 
-# Running with for loop as lapply sometimes crashes on local laptop, 
-# this way it saves progress to rds files and I can restart if needed
-# from where it crashed
+args <- commandArgs(trailingOnly = TRUE)
 
-for(x in c(2228:nrow(df_env))) {
-  a <- ibm_ext_p(i = x, df_env = df_env,
+taskID = as.integer(args[1])
+
+results <- lapply(as.list(c(1:30)), function(x) {
+  print(x)
+  a <- ibm_ext_p(i = taskID, df_env = df_env,
                  params = params,
-                 clim_ts = clim_ts,
+                 fut_clim = fut_clim,
                  clim_hist = hist_clim,
-                 pop_vec = pop_vec,
+                 pop_vec = pop_vec_start,
                  sdl_n = sdl_n,
                  n_it = n_it)
-  
-
-  saveRDS(a, file = paste0("results/ibm/df_", x, ".rds"))
-  gc()
-}
-
-df_list <- list.files("results/ibm/", full.names = T) 
-df <- lapply(df_list, readRDS) %>% bind_rows
+  return(a)}) %>% bind_rows()
 
 
-saveRDS(df, file = "results/rds/extinction_probability.rds")
+
+saveRDS(a, file = paste0("results/ibm/df_", taskID, ".rds"))
+
 
 
 
