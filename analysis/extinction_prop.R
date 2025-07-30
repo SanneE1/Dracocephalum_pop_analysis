@@ -169,7 +169,7 @@ results <- lapply(as.list(c(1:30)), function(x) {
 
 
 
-saveRDS(a, file = paste0("results/ibm/df_", taskID, ".rds"))
+saveRDS(results, file = paste0("results/ibm/df_", taskID, ".rds"))
 
 
 
