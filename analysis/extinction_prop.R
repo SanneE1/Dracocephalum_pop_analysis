@@ -2,18 +2,9 @@
 library(tidyverse)
 library(glmnet)
 library(lme4)
-# library(patchwork)
-# library(ipmr)
-# library(mgcv)
-# library(parallel)
-# library(forecast)
-
-# args = commandArgs(trailingOnly = T)
-
-# setwd(args[1])
 
 source("R/functions_ibm.R")
-source("R/functions_ipmr.R")
+# source("R/functions_ipmr.R")
 
 # Projections will be from 2022 to 2100
 n_it = 79
@@ -26,29 +17,30 @@ fut_clim <- read.csv("data/CHELSA_future_ts_formatted.csv") %>%
   filter(complete.cases(.))
 
 clim_spring <- fut_clim %>% 
-  filter(month > 2 & month < 6) %>%
+  filter(month >= 3 & month <= 5) %>%
   mutate(year_t0 = year - 1, .keep = "unused") %>%
   group_by(locality, year_t0, model, scenario) %>%
   summarise(pet_spring = mean(pet_scaled, na.rm = T),
             pr_spring = mean(pr_scaled, na.rm = T),
             tas_spring = mean(tas_scaled, na.rm = T)) %>%
-  ungroup() 
+  ungroup()
 clim_summer <- fut_clim %>% 
-  filter(month > 2 & month < 6) %>%
+  filter(month >= 6 & month <= 8) %>%
   rename(year_t0 = year) %>%
   group_by(locality, year_t0, model, scenario) %>%
   summarise(pet_summer = mean(pet_scaled, na.rm = T),
             pr_summer = mean(pr_scaled, na.rm = T),
             tas_summer = mean(tas_scaled, na.rm = T)) %>%
-  ungroup() 
+  ungroup()
 clim_dormant <- fut_clim %>% 
-  filter(month < 3 | month > 8) %>%
+  filter(month <= 2 | month >= 9) %>%
   mutate(year_t0 = ifelse(month < 3, year - 1, year)) %>%
   group_by(locality, year_t0, model, scenario) %>%
   summarise(pet_dormant = mean(pet_scaled, na.rm = T),
             pr_dormant = mean(pr_scaled, na.rm = T),
             tas_dormant = mean(tas_scaled, na.rm = T)) %>%
   ungroup() 
+
 
 fut_clim <- left_join(clim_spring, clim_summer)
 fut_clim <- left_join(fut_clim, clim_dormant)
@@ -152,12 +144,11 @@ df_env <- df_env %>% rowid_to_column()
 gc()
 print("start ibm")
 
-args <- commandArgs(trailingOnly = TRUE)
+# args <- commandArgs(trailingOnly = TRUE)
+# taskID = as.integer(args[1])
 
-taskID = as.integer(args[1])
-
-results <- lapply(as.list(c(1:30)), function(x) {
-  print(x)
+for(taskID in c(1:512)) {
+results <- lapply(as.list(c(1:10)), function(x) {
   a <- ibm_ext_p(i = taskID, df_env = df_env,
                  params = params,
                  fut_clim = fut_clim,
@@ -167,10 +158,8 @@ results <- lapply(as.list(c(1:30)), function(x) {
                  n_it = n_it)
   return(a)}) %>% bind_rows()
 
-
-
 saveRDS(results, file = paste0("results/ibm/df_", taskID, ".rds"))
-
+}
 
 
 

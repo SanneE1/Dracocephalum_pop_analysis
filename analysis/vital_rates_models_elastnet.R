@@ -1,8 +1,5 @@
 library(lme4)
 library(dplyr)
-library(ggplot2)
-library(brms)
-library(MuMIn)
 library(glmnet)
 
 data_for_modeling = "data/Dracocephalum_with_vital_rates.csv"
@@ -23,7 +20,7 @@ demo_data <- read.csv(data_for_modeling) %>%
 clim_data <- read.csv(CHELSA_data)
 
 clim_spring <- clim_data %>% 
-  filter(month > 2 & month < 6) %>%
+  filter(month >= 3 & month <= 5) %>%
   mutate(year_t0 = year - 1, .keep = "unused") %>%
   group_by(locality, year_t0) %>%
   summarise(pet_spring = mean(pet_scaled, na.rm = T),
@@ -32,7 +29,7 @@ clim_spring <- clim_data %>%
   ungroup() %>%
   mutate(population = toupper(locality), .keep = "unused")
 clim_summer <- clim_data %>% 
-  filter(month > 2 & month < 6) %>%
+  filter(month >= 6 & month <= 8) %>%
   rename(year_t0 = year) %>%
   group_by(locality, year_t0) %>%
   summarise(pet_summer = mean(pet_scaled, na.rm = T),
@@ -41,7 +38,7 @@ clim_summer <- clim_data %>%
   ungroup() %>%
   mutate(population = toupper(locality), .keep = "unused")
 clim_dormant <- clim_data %>% 
-  filter(month < 3 | month > 8) %>%
+  filter(month <= 2 | month >= 9) %>%
   mutate(year_t0 = ifelse(month < 3, year - 1, year)) %>%
   group_by(locality, year_t0) %>%
   summarise(pet_dormant = mean(pet_scaled, na.rm = T),
@@ -69,13 +66,16 @@ surv_df <- df %>%
 y_surv <- surv_df$survival_t1
 X_surv <- model.matrix(survival_t1 ~ ln_stems_t0 + population + rock + slope + soil_depth + 
                          herb_shading_t0 + shrub_shading_t0 +
-                         pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
+                         pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
                          herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
                          herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
                          herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
                          herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
                          herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
-                         herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring, 
+                         herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                         herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                         herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                         herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
                        data = surv_df)[, -1]  
 cv_surv <- cv.glmnet(X_surv, y_surv, family = "binomial", alpha = 0.5)  # alpha = 0.5 for elastic net
 
@@ -104,13 +104,16 @@ growth_df <- surv_df %>% filter(survival_t1 == 1)
 y_growth <- growth_df$ln_stems_t1
 X_growth <- model.matrix(ln_stems_t1 ~ ln_stems_t0 + population + rock + slope + soil_depth + 
                            herb_shading_t0 + shrub_shading_t0 +
-                           pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
+                           pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
                            herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
                            herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
                            herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
                            herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
                            herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
-                           herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring, 
+                           herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                           herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                           herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                           herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
                          data = growth_df)[, -1]  
 cv_growth <- cv.glmnet(X_growth, y_growth, family = "gaussian", alpha = 0.5)  # alpha = 0.5 for elastic net
 
@@ -146,13 +149,16 @@ flowp_df <- surv_df %>% filter(!is.na(flower_p_t0))
 y_flowp <- flowp_df$flower_p_t0
 X_flowp <- model.matrix(flower_p_t0 ~ ln_stems_t0 + population + rock + slope + soil_depth + 
                           herb_shading_t0 + shrub_shading_t0 +
-                          pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
+                          pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
                           herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
                           herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
                           herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
                           herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
                           herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
-                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring, 
+                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                          herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                          herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                          herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
                         data = flowp_df)[, -1]  
 cv_flowp <- cv.glmnet(X_flowp, y_flowp, family = "binomial", alpha = 0.5)  # alpha = 0.5 for elastic net
 
@@ -181,13 +187,16 @@ seedp_df <- surv_df %>% filter(flower_p_t0 == 1)
 y_seedp <- seedp_df$seed_p_t0
 X_seedp <- model.matrix(seed_p_t0 ~ ln_stems_t0 + population + rock + slope + soil_depth + 
                           herb_shading_t0 + shrub_shading_t0 +
-                          pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
+                          pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
                           herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
                           herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
                           herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
                           herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
                           herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
-                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring, 
+                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                          herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                          herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                          herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
                         data = seedp_df)[, -1]  
 cv_seedp <- cv.glmnet(X_seedp, y_seedp, family = "binomial", alpha = 0.5)  # alpha = 0.5 for elastic net
 
@@ -217,13 +226,16 @@ seedn_df <- surv_df %>% filter(seed_p_t0 == 1)
 y_seedn <- seedn_df$est_seed_n_t0
 X_seedn <- model.matrix(est_seed_n_t0 ~ ln_stems_t0 + population + rock + slope + soil_depth + 
                           herb_shading_t0 + shrub_shading_t0 +
-                          pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
+                          pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
                           herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
                           herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
                           herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
                           herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
                           herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
-                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring, 
+                          herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                          herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                          herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                          herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
                         data = seedn_df)[, -1]  
 cv_seedn <- cv.glmnet(X_seedn, y_seedn, family = Gamma(link = 'log'), alpha = 0.5)  # alpha = 0.5 for elastic net
 
