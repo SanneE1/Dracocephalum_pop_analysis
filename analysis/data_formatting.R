@@ -1,7 +1,6 @@
 #---------------------------------------------------------------
 # formatting of demographic data into long format
 #---------------------------------------------------------------
-source("R/functions_data_formatting.R")
 source("R/functions_data_transformation.R")
 
 # Location of raw file
