@@ -7,61 +7,34 @@ setwd(args[2])
 library(dplyr)
 library(lme4)
 library(ipmr)
-library(mgcv)
+library(glmnet)
 library(parallel)
 library(forecast)
 
 source("R/functions_ipmr.R")
 
-VR_FLM <- readRDS("results/rds/VR_FLM.rds")
 state_independent_variables <- readRDS("results/rds/state_independent_VR.rds")
 climate_models <- readRDS("results/rds/ARIMA_clim_mods.rds")
+
+demo_data <- read.csv("data/Dracocephalum_with_vital_rates.csv") %>%
+  mutate(herb_shading_t0 = scale(herb_shading_t0),
+         shrub_shading_t0 = scale(shrub_shading_t0))
 
 lag = 24
 n_it = 5000
 
 # param/model list 
 params <- list(
-  surv_mod = VR_FLM$surv,
-  s_int = coef(VR_FLM$surv)[1],
-  s_stems = coef(VR_FLM$surv)[2],
-  s_site_CR = 0,
-  s_site_HK = coef(VR_FLM$surv)[3],
-  s_site_KS = coef(VR_FLM$surv)[4],
-  s_site_RU = coef(VR_FLM$surv)[5],
+  surv_mod = readRDS("results/rds/seasons_surv.rds"),
   
-  grow_mod = VR_FLM$growth,
-  grow_sd = sd(resid(VR_FLM$growth)),
-  g_int = coef(VR_FLM$growth)[1],
-  g_stems = coef(VR_FLM$growth)[2],
-  g_site_CR = 0,
-  g_site_HK = coef(VR_FLM$growth)[3],
-  g_site_KS = coef(VR_FLM$growth)[4],
-  g_site_RU = coef(VR_FLM$growth)[5],
+  grow_mod = readRDS('results/rds/seasons_growth.rds'),
+  grow_sd = readRDS("results/rds/seasons_growth_sd.rds"),
   
-  pflower_mod = VR_FLM$flower_p,
-  fp_int = coef(VR_FLM$flower_p)[1],
-  fp_stems = coef(VR_FLM$flower_p)[2],
-  fp_site_CR = 0,
-  fp_site_HK = coef(VR_FLM$flower_p)[3],
-  fp_site_KS = coef(VR_FLM$flower_p)[4],
-  fp_site_RU = coef(VR_FLM$flower_p)[5],
+  pflower_mod = readRDS("results/rds/seasons_flowp.rds"),
   
-  seedp_mod = VR_FLM$seedp,
-  sp_int = coef(VR_FLM$seedp)[1],
-  sp_stems = coef(VR_FLM$seedp)[2],
-  sp_site_CR = 0,
-  sp_site_HK = coef(VR_FLM$seedp)[3],
-  sp_site_KS = coef(VR_FLM$seedp)[4],
-  sp_site_RU = coef(VR_FLM$seedp)[5],
+  seedp_mod = readRDS("results/rds/seasons_seedp.rds"),
   
-  seedn_mod = VR_FLM$seedn,
-  sn_int = coef(VR_FLM$seedn)[1],
-  sn_stems = coef(VR_FLM$seedn)[2],
-  sn_site_CR = 0,
-  sn_site_HK = coef(VR_FLM$seedn)[3],
-  sn_site_KS = coef(VR_FLM$seedn)[4],
-  sn_site_RU = coef(VR_FLM$seedn)[5],
+  seedn_mod = readRDS('results/rds/seasons_seedn.rds'),
   
   seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
   seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
@@ -74,13 +47,17 @@ params <- list(
   sdl_s_int = lme4::fixef(state_independent_variables$sdl_surv)[1],
   
   sdl_d_int = lme4::fixef(state_independent_variables$sdl_size_d)[1],
-  sdl_size_d_sd = sd(resid(state_independent_variables$sdl_size_d))
-  )
+  sdl_size_d_sd = sd(resid(state_independent_variables$sdl_size_d)),
+  
+  herb_center = attr(demo_data$herb_shading_t0, "scaled:center"),
+  herb_scale = attr(demo_data$herb_shading_t0, "scaled:scale"),
+  shrub_center = attr(demo_data$shrub_shading_t0, "scaled:center"),
+  shrub_scale = attr(demo_data$shrub_shading_t0, "scaled:scale"))
 
 
 ## Set integration params
-L <- min(VR_FLM$growth$model$ln_stems_t0, na.rm = T)
-U <- max(VR_FLM$growth$model$ln_stems_t0, na.rm = T) * 1.1
+L <- 0
+U <- 4.672829 * 1.1
 n = 100
 
 
@@ -90,36 +67,41 @@ n = 100
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shading <- seq(0,6, length.out = 4)
+
+shrub_shading <- seq(0,6, length.out = 4)
+herb_shading <- seq(0,6, length.out = 4)
+
 slope <- seq(0, 50, length.out = 6)
 rock <- seq(0, 80, length.out = 6)
 soil_depth <- seq(0,10, length.out = 6)
 
-model <- c("ACCESS1", "CESM1", "CMCC", "MIROC5")
+model <- c("ACCESS1-3", "CESM1-BGC", "CMCC-CM", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
-hist <- expand.grid(localities = localities, 
-                           shading = shading,
+hist <- expand.grid(localities = localities,
+                    shrub_shading = shrub_shading,
+                    herb_shading = herb_shading,
                     slope = 14,
                     rock = 30,
                     soil_depth = 5,
-                           time = "hist",
-                           scenario = NA,
-                           model = NA
+                    time = "hist",
+                    scenario = NA,
+                    model = NA
 ) 
 fut <- expand.grid(localities = localities, 
-                          shading = shading, 
-                          slope = 14,
-                          rock = 30,
-                          soil_depth = 5,
-                          time = "future",
-                          scenario = scenario,
-                          model = model
+                   shrub_shading = shrub_shading,
+                   herb_shading = herb_shading,
+                   slope = 14,
+                   rock = 30,
+                   soil_depth = 5,
+                   time = "future",
+                   scenario = scenario,
+                   model = model
 ) 
-
 slope <- expand.grid(localities = "CR", 
-                   shading = 3, 
-                   slope = slope,
+                     shrub_shading = 2,
+                     herb_shading = 2,
+                     slope = slope,
                    rock = 30,
                    soil_depth = 5,
                    time = "hist",
@@ -128,8 +110,9 @@ slope <- expand.grid(localities = "CR",
 ) 
 
 rock <- expand.grid(localities = "CR", 
-                   shading = 3, 
-                   slope = 14,
+                    shrub_shading = 2,
+                    herb_shading = 2,
+                    slope = 14,
                    rock = rock,
                    soil_depth = 5,
                    time = "hist",
@@ -138,8 +121,9 @@ rock <- expand.grid(localities = "CR",
 ) 
 
 soil <- expand.grid(localities = "CR", 
-                   shading = 3, 
-                   slope = 14,
+                    shrub_shading = 2,
+                    herb_shading = 2,
+                    slope = 14,
                    rock = 30,
                    soil_depth = soil_depth,
                    time = "hist",

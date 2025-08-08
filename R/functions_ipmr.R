@@ -3,57 +3,84 @@
 ## the lagged temp in current year)
 sampling_env <- function(iteration, env_params, start_year = 2023) {
   suppressWarnings({
-  lags_sim <- matrix(c(1:(env_params$lags + 1)), nrow = 1, ncol = (env_params$lags + 1), byrow = T)
-  
-  ### get values for window function
-  mon <- seq(from = 0, to = 0.95, length.out = 12)
-  end <- (start_year + iteration) + mon[7]
-  start <- end - (1/12 * (env_params$lags + 1))
-  
-  pet_sim <- rev(as.numeric(window(env_params[[grep("pet", names(env_params), value = T)]], start, end))) %>%
-    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
-  pr_sim <- rev(as.numeric(window(env_params[[grep("pr", names(env_params), value = T)]], start, end))) %>%
-    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
-  tas_sim <- rev(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start, end))) %>%
-    matrix(., nrow = 1, ncol = (env_params$lags + 1), byrow = T)
+    
+    ### get values for window function
+    mon <- seq(from = 0, to = 0.95, length.out = 12)
+    year_t1 <- (start_year + iteration)
+    year_t0 <- year_t1 - 1
+    
+    pr_spring <- mean(as.numeric(window(env_params[[grep("pr", names(env_params), value = T)]], start = (year_t1+mon[2]), end = (year_t1+mon[5]))))
+    tas_spring <- mean(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start = (year_t1+mon[2]), end = (year_t1+mon[5]))))
+    pet_spring <- mean(as.numeric(window(env_params[[grep("pet", names(env_params), value = T)]], start = (year_t1+mon[2]), end = (year_t1+mon[5]))))
+    
+    pr_dormant <- mean(as.numeric(window(env_params[[grep("pr", names(env_params), value = T)]], start = (year_t0+mon[8]), end = (year_t1+mon[2]))))
+    tas_dormant <- mean(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start = (year_t0+mon[8]), end = (year_t1+mon[2]))))
+    pet_dormant <- mean(as.numeric(window(env_params[[grep("pet", names(env_params), value = T)]], start = (year_t0+mon[8]), end = (year_t1+mon[2]))))
+    
+    pr_summer <- mean(as.numeric(window(env_params[[grep("pr", names(env_params), value = T)]], start = (year_t0+mon[5]), end = (year_t0+mon[8]))))
+    tas_summer <- mean(as.numeric(window(env_params[[grep("tas", names(env_params), value = T)]], start = (year_t0+mon[5]), end = (year_t0+mon[8]))))
+    pet_summer <- mean(as.numeric(window(env_params[[grep("pet", names(env_params), value = T)]], start = (year_t0+mon[5]), end = (year_t0+mon[8]))))
+    
   })
   
-  return(list(lags = lags_sim,
-              temp = tas_sim,
-              precip = pr_sim,
-              pet = pet_sim,
-              shading = env_params$shading,
-              rock = env_params$rock,
-              slope = env_params$slope,
-              soil_depth = env_params$soil_depth
+  return(list(pr_spring = pr_spring,
+              tas_spring = tas_spring,
+              pet_spring = pet_spring,
+              pr_dormant = pr_dormant,
+              tas_dormant = tas_dormant,
+              pet_dormant = pet_dormant,
+              pr_summer = pr_summer,
+              tas_summer = tas_summer,
+              pet_summer = pet_summer
   ))
 }
 
-FLM_clim_predict <- function(model, lag_vec, 
-                             temp_vec, precip_vec, pet_vec, 
-                             shading, rock, slope, soil) {
-  
-  ## dummy data list, won't be using the predictions for n_stems : year_t0 but these need to be provided for predict function
-  new_data <- list(
-    ln_stems_t0 = 1,  
-    population = "CR",
-    tot_shading_t0 = shading,
-    slope = slope,
-    rock = rock,
-    soil_depth = soil,
-    lags = matrix(lag_vec, nrow = 1),
-    tas_scaledcovar = matrix(temp_vec, nrow = 1),
-    pr_scaledcovar = matrix(precip_vec, nrow = 1),
-    pet_scaledcovar = matrix(pet_vec, nrow = 1),
-    year_t0 = 2016
+mod_pred <- function(model, size,
+                     env_params,  
+                     pr_spring, tas_spring, pet_spring,
+                     pr_dormant, tas_dormant, pet_dormant,
+                     pr_summer, tas_summer, pet_summer) {
+  ## New datalist, 
+  new_data <- data.frame(
+    survival_t1 = 1,
+    ln_stems_t0 = size,  
+    population = factor(rep(toupper(env_params$locality), n), levels = c("CR", "HK", "KS", "RU")),
+    slope = env_params$slope,
+    rock = env_params$rock,
+    soil_depth = env_params$soil_depth,
+    ## scaling these values given the center and scale attributes
+    herb_shading_t0 = (env_params$herb_shading - env_params$herb_center) / env_params$herb_scale,
+    shrub_shading_t0 = (env_params$shrub_shading - env_params$shrub_center) / env_params$shrub_scale,
+    
+    pr_dormant = pr_dormant,
+    tas_dormant = tas_dormant,
+    pet_dormant = pet_dormant,
+    pr_spring = pr_spring,
+    tas_spring = tas_spring,
+    pet_spring = pet_spring,
+    pr_summer = pr_summer,
+    tas_summer = tas_summer,
+    pet_summer = pet_summer
   )
   
-  pt <- mgcv::predict.gam(model, new_data, type = "terms", exclude = "s(year_t0)")
+  new_data = model.matrix( ~ ln_stems_t0 + population + rock + slope + soil_depth + 
+                             herb_shading_t0 + shrub_shading_t0 +
+                             pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
+                             herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
+                             herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
+                             herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
+                             herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
+                             herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
+                             herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                             herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                             herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                             herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
+                           data = new_data)[, -1]
   
-  a <-  sum(pt[, -c(1,2)])
-  
-  return(a)
+  pt <- predict(model, newx = new_data, type = "response")
+  return(pt)
 }
+
 
 run_ipm <- function(params, env_params, locality, 
                     n_it = n_it, U, L, n){
@@ -64,16 +91,17 @@ run_ipm <- function(params, env_params, locality,
       family    = "CC",
       formula   = s_loc * g_loc * d_stems,
       
-      s_loc         =  plogis(s_linear_loc),
-      s_linear_loc  =  s_int + s_stems * stems_1 + s_site_loc + 
-        FLM_clim_predict(model = surv_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet,
-                         slope = slope, soil = soil_depth, rock = rock),
+      s_loc         = mod_pred(model = surv_mod, size = stems_1, 
+                               env_params = env_params, 
+                               pr_spring = pr_spring, tas_spring = tas_spring, pet_spring = pet_spring,
+                               pr_dormant = pr_dormant, tas_dormant = tas_dormant, pet_dormant = pet_dormant,
+                               pr_summer = pr_summer, tas_summer = tas_summer, pet_summer = pet_summer),
       g_loc         =  dnorm(stems_2, g_mu_loc, grow_sd),
-      g_mu_loc      =  g_int + g_stems * stems_1 + g_site_loc +
-        FLM_clim_predict(model = grow_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet,
-                         slope = slope, soil = soil_depth, rock = rock),
+      g_mu_loc      =  mod_pred(model = grow_mod, size = stems_1, 
+                                env_params, 
+                                pr_spring, tas_spring, pet_spring,
+                                pr_dormant, tas_dormant, pet_dormant,
+                                pr_summer, tas_summer, pet_summer),
       
       data_list     = params,
       states        = list(c("stems")),
@@ -89,24 +117,24 @@ run_ipm <- function(params, env_params, locality,
       family = "CD",
       formula = fp_loc * seedp_loc * seedn_loc * surv1_seed * germ * d_stems,
       
-      fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
-                                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      fp_loc          = mod_pred(model = pflower_mod, size = stems_1, 
+                                 env_params, 
+                                 pr_spring, tas_spring, pet_spring,
+                                 pr_dormant, tas_dormant, pet_dormant,
+                                 pr_summer, tas_summer, pet_summer),
       
-      seedp_loc     = plogis(sp_linear_loc),
-      sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
-                                       temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      seedp_loc     = mod_pred(model = seedp_mod, size = stems_1, 
+                               env_params, 
+                               pr_spring, tas_spring, pet_spring,
+                               pr_dormant, tas_dormant, pet_dormant,
+                               pr_summer, tas_summer, pet_summer),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
-      seedn_mod_loc     = exp(seedn_linear_loc),
-      seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      seedn_mod_loc     = mod_pred(model = seedn_mod, size = stems_1, 
+                                   env_params, 
+                                   pr_spring, tas_spring, pet_spring,
+                                   pr_dormant, tas_dormant, pet_dormant,
+                                   pr_summer, tas_summer, pet_summer),
       
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
@@ -124,24 +152,24 @@ run_ipm <- function(params, env_params, locality,
       family = "CD",
       formula = fp_loc * seedp_loc * seedn_loc * surv1_seed * (1-germ) * d_stems,
       
-      fp_loc          = plogis(fp_linear_loc),
-      fp_linear_loc   = fp_int + fp_stems * stems_1 + fp_site_loc +
-        FLM_clim_predict(model = pflower_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      fp_loc          = mod_pred(model = pflower_mod, size = stems_1, 
+                                 env_params, 
+                                 pr_spring, tas_spring, pet_spring,
+                                 pr_dormant, tas_dormant, pet_dormant,
+                                 pr_summer, tas_summer, pet_summer),
       
-      seedp_loc     = plogis(sp_linear_loc),
-      sp_linear_loc   = sp_int + sp_stems * stems_1 + sp_site_loc +
-        FLM_clim_predict(model = seedp_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      seedp_loc     = mod_pred(model = seedp_mod, size = stems_1, 
+                               env_params, 
+                               pr_spring, tas_spring, pet_spring,
+                               pr_dormant, tas_dormant, pet_dormant,
+                               pr_summer, tas_summer, pet_summer),
       
       seedn_loc = ifelse(seedn_mod_loc > 515, 515, seedn_mod_loc),
-      seedn_mod_loc     = exp(seedn_linear_loc),
-      seedn_linear_loc = sn_int + sn_stems * stems_1 + sn_site_loc +
-        FLM_clim_predict(model = seedn_mod, lag_vec = lags, shading = shading,
-                         temp_vec = temp, precip_vec = precip, pet_vec = pet, 
-                         slope = slope, soil = soil_depth, rock = rock),
+      seedn_mod_loc     = mod_pred(model = seedn_mod, size = stems_1, 
+                                   env_params, 
+                                   pr_spring, tas_spring, pet_spring,
+                                   pr_dormant, tas_dormant, pet_dormant,
+                                   pr_summer, tas_summer, pet_summer),
       
       germ        = germ_mean, 
       surv1_seed  = seed_surv1,
@@ -268,7 +296,7 @@ run_ipm <- function(params, env_params, locality,
       iterate = T,
       iterations = n_it,
       kernel_seq = rep(locality, n_it),
-      usr_funs = list(FLM_clim_predict = FLM_clim_predict),
+      usr_funs = list(mod_pred = mod_pred),
       return_sub_kernels = T
     )
   
@@ -292,18 +320,23 @@ ipm_loop <- function(i, df_env, params,
   }
   
   clim_sim <- lapply(clim_mod, function(x)
-    simulate(x, nsim = ((n_it * 12) + (3*lag))) %>%
+    simulate(x, nsim = (((n_it + 1) * 12))) %>%
       ts(., start= c(2023,1), frequency = 12))
   
   # environmental params
   env_params <- append(
     clim_sim,
     list(
-      lags = lag,
-      shading = df_env$shading[i],
+      herb_shading = df_env$herb_shading[i],
+      herb_center = params$herb_center,
+      herb_scale = params$herb_scale,
+      shrub_shading = df_env$shrub_shading[i],
+      shrub_center = params$shrub_center,
+      shrub_scale = params$shrub_scale,
       slope = df_env$slope[i],
       rock = df_env$rock[i],
-      soil_depth = df_env$soil_depth[i]
+      soil_depth = df_env$soil_depth[i],
+      locality = df_env$localities[i]
     ))
   
   ipm <- run_ipm(params = params, env_params = env_params, 
@@ -311,15 +344,16 @@ ipm_loop <- function(i, df_env, params,
                  n_it = n_it, U = U, L = L, n = n)
   
   df1 <- tibble(time = df_env$time[i],
-                    locality = loc,
-                    model = df_env$model[i],
-                    scenario = df_env$scenario[i],
-                    shading = env_params$shading,
+                locality = df_env$localities[i],
+                model = df_env$model[i],
+                scenario = df_env$scenario[i],
+                herb_shading = df_env$herb_shading[i],
+                shrub_shading = df_env$shrub_shading[i],
                 slope = env_params$slope,
                 rock = env_params$rock,
                 soil_depth = env_params$soil_depth,
-                    lambda = ipmr::lambda(ipm)
-                    )
+                lambda = ipmr::lambda(ipm)
+  )
   
   if(save){
     write.csv(df1, file = paste0("results/stoch_ipms/lambda_env_levels_", i, ".csv"), row.names = F)
