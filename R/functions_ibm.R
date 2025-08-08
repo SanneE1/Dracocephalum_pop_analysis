@@ -18,19 +18,28 @@ mod_pred <- function(indi, model,
     
     pr_dormant = clim$pr_dormant,
     tas_dormant = clim$tas_dormant,
+    pet_dormant = clim$pet_dormant,
     pr_spring = clim$pr_spring,
     tas_spring = clim$tas_spring,
+    pet_spring = clim$pet_spring,
     pr_summer = clim$pr_summer,
-    tas_summer = clim$tas_summer
+    tas_summer = clim$tas_summer,
+    pet_summer = clim$pet_summer
   )
-
+  
   new_data = model.matrix( ~ ln_stems_t0 + population + rock + slope + soil_depth + 
-                            herb_shading_t0 + shrub_shading_t0 +
-                            pr_dormant + tas_dormant + pr_summer + tas_summer + pr_spring + tas_spring +
-                            herb_shading_t0:pr_dormant + shrub_shading_t0:tas_dormant +
-                            herb_shading_t0:pr_summer + shrub_shading_t0:tas_summer +
-                            herb_shading_t0:pr_spring + shrub_shading_t0:tas_spring, 
-               data = new_data)[, -1]
+                             herb_shading_t0 + shrub_shading_t0 +
+                             pr_dormant + tas_dormant + pet_dormant + pr_summer + tas_summer + pet_summer + pr_spring + tas_spring + pet_spring +
+                             herb_shading_t0:pr_dormant + shrub_shading_t0:pr_dormant +
+                             herb_shading_t0:pr_summer + shrub_shading_t0:pr_summer +
+                             herb_shading_t0:pr_spring + shrub_shading_t0:pr_spring + 
+                             herb_shading_t0:tas_dormant + shrub_shading_t0:tas_dormant +
+                             herb_shading_t0:tas_summer + shrub_shading_t0:tas_summer +
+                             herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
+                             herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
+                             herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
+                             herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
+                           data = new_data)[, -1]
   
   pt <- predict(model, newx = new_data, type = "response")
   return(pt)
@@ -50,8 +59,8 @@ yearly_loop <- function(yr, clim, locality,
   
   # generate binomial random number for survival
   surv <- rbinom(n = Npop, prob = mod_pred(indi = indi, model = params$surv_mod,
-                                               params = params, locality = locality, 
-                                               clim = clim_yr), 
+                                           params = params, locality = locality, 
+                                           clim = clim_yr), 
                  size = 1)
   
   
@@ -59,10 +68,10 @@ yearly_loop <- function(yr, clim, locality,
   z1 <- rep(NA, Npop)
   if (sum(surv) > 0) {
     z1[which(surv == 1)] <- rnorm(n = length(which(surv == 1)),
-                                mean = mod_pred(indi = indi[which(surv == 1),], model = params$grow_mod,
-                                                params = params, locality = locality, 
-                                                clim = clim_yr),
-                                sd = params$grow_sd)
+                                  mean = mod_pred(indi = indi[which(surv == 1),], model = params$grow_mod,
+                                                  params = params, locality = locality, 
+                                                  clim = clim_yr),
+                                  sd = params$grow_sd)
   }
   indi_z1 <- indi %>%
     mutate(surv = surv, 
@@ -70,34 +79,34 @@ yearly_loop <- function(yr, clim, locality,
   
   # calculate total number of seeds produced
   flowp <- rbinom(n = Npop, prob = mod_pred(indi = indi, model = params$pflower_mod,
-                                                params = params, locality = locality, 
-                                                clim = clim_yr), 
+                                            params = params, locality = locality, 
+                                            clim = clim_yr), 
                   size = 1)
   
   seedp <- rep(NA, Npop)
   if (length(which(flowp == 1)) > 0) {
-  seedp[which(flowp == 1)] <- rbinom(n = length(which(flowp == 1)), 
-                                     prob = mod_pred(indi = indi[which(flowp == 1),], 
-                                                     model = params$pseed_mod,
-                                                     params = params, locality = locality, 
-                                                     clim = clim_yr), 
-                                     size = 1)
+    seedp[which(flowp == 1)] <- rbinom(n = length(which(flowp == 1)), 
+                                       prob = mod_pred(indi = indi[which(flowp == 1),], 
+                                                       model = params$pseed_mod,
+                                                       params = params, locality = locality, 
+                                                       clim = clim_yr), 
+                                       size = 1)
   }
   
   nseeds <- rep(NA, Npop)
   if(length(which(seedp == 1)) > 0 ) {
-  seed_mean <- mod_pred(indi = indi[which(seedp == 1),], model = params$nseed_mod,
-                        params = params, locality = locality, 
-                        clim = clim_yr)
-  
-  seed_gamma_shape1 <- (seed_mean^2)/(params$nseed_sd^2)
-  seed_gamma_shape2 <- (seed_mean)/(params$nseed_sd^2)
-  nseeds[which(seedp == 1)] <- round(
-    rgamma(n = length(which(seedp == 1)), shape = seed_gamma_shape1, scale = seed_gamma_shape2),
-    0)
-  
-  ## cap individual seed production to 515
-  nseeds[which(nseeds > 515)] <- 515
+    seed_mean <- mod_pred(indi = indi[which(seedp == 1),], model = params$nseed_mod,
+                          params = params, locality = locality, 
+                          clim = clim_yr)
+    
+    seed_gamma_shape1 <- (seed_mean^2)/(params$nseed_sd^2)
+    seed_gamma_shape2 <- (seed_mean)/(params$nseed_sd^2)
+    nseeds[which(seedp == 1)] <- round(
+      rgamma(n = length(which(seedp == 1)), shape = seed_gamma_shape1, scale = seed_gamma_shape2),
+      0)
+    
+    ## cap individual seed production to 515
+    nseeds[which(nseeds > 515)] <- 515
   }
   
   tot_seeds <- sum(nseeds, na.rm = T)
@@ -267,4 +276,14 @@ calc_stats <- function(data, variable) {
       gamma_scale = ifelse(sum(!is.na(get(variable)) & get(variable) > 0) > 1, 
                            1 / MASS::fitdistr(get(variable)[!is.na(get(variable)) & get(variable) > 0], "gamma")$estimate["rate"], NA)
     )
+}
+
+cadence_rbgamma <- function (n, prob, scale, shape) {
+  if (max(length(prob), length(scale), length(shape)) > 1) 
+    stop("parameters must be of length 1")
+  p <- runif(n)
+  q <- rep(0, length(p))
+  cases <- p > (1 - prob)
+  q[cases] <- rgamma(sum(cases), scale = scale, shape = shape)
+  q
 }
