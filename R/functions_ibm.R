@@ -139,13 +139,13 @@ yearly_loop <- function(yr, clim, locality,
     size = rnorm(sdl_to_plant, mean = params$sdl_d_int, sd = params$sdl_d_sd),
     Hshading = rpois(sdl_to_plant, Hshading),
     Sshading = rpois(sdl_to_plant, Sshading),
-    slope = CaDENCE::rbgamma(n = sdl_to_plant, prob = params$slope$prob_non_zero[which(params$slope$population == toupper(locality))],
+    slope = cadence_rbgamma(n = sdl_to_plant, prob = params$slope$prob_non_zero[which(params$slope$population == toupper(locality))],
                              scale = params$slope$gamma_scale[which(params$slope$population == toupper(locality))], 
                              shape = params$slope$gamma_shape[which(params$slope$population == toupper(locality))]),
-    rock = CaDENCE::rbgamma(n = sdl_to_plant, prob = params$rock$prob_non_zero[which(params$rock$population == toupper(locality))],
+    rock = cadence_rbgamma(n = sdl_to_plant, prob = params$rock$prob_non_zero[which(params$rock$population == toupper(locality))],
                             scale = params$rock$gamma_scale[which(params$rock$population == toupper(locality))], 
                             shape = params$rock$gamma_shape[which(params$rock$population == toupper(locality))]),
-    soil_depth = CaDENCE::rbgamma(n = sdl_to_plant, prob = params$soil_depth$prob_non_zero[which(params$soil_depth$population == toupper(locality))],
+    soil_depth = cadence_rbgamma(n = sdl_to_plant, prob = params$soil_depth$prob_non_zero[which(params$soil_depth$population == toupper(locality))],
                                   scale = params$soil_depth$gamma_scale[which(params$soil_depth$population == toupper(locality))], 
                                   shape = params$soil_depth$gamma_shape[which(params$soil_depth$population == toupper(locality))])
   )
@@ -193,15 +193,15 @@ ibm_ext_p <- function(i, df_env, params,
   # set up starting shading & slope
   pop_Hshading <- rbinom(n = length(pop_vec), 20, prob = (Hshading_i/20))
   pop_Sshading <- rbinom(n = length(pop_vec), 20, prob = (Sshading_i/20))
-  pop_slope <- CaDENCE::rbgamma(n = length(pop_vec), prob = params$slope$prob_non_zero[which(params$slope$population == toupper(locality_i))],
+  pop_slope <- cadence_rbgamma(n = length(pop_vec), prob = params$slope$prob_non_zero[which(params$slope$population == toupper(locality_i))],
                                 scale = params$slope$gamma_scale[which(params$slope$population == toupper(locality_i))], 
                                 shape = params$slope$gamma_shape[which(params$slope$population == toupper(locality_i))])
   
-  pop_rock <- CaDENCE::rbgamma(n = length(pop_vec), prob = params$rock$prob_non_zero[which(params$rock$population == toupper(locality_i))],
+  pop_rock <- cadence_rbgamma(n = length(pop_vec), prob = params$rock$prob_non_zero[which(params$rock$population == toupper(locality_i))],
                                scale = params$rock$gamma_scale[which(params$rock$population == toupper(locality_i))], 
                                shape = params$rock$gamma_shape[which(params$rock$population == toupper(locality_i))])
   
-  pop_sd <- CaDENCE::rbgamma(n = length(pop_vec), prob = params$soil_depth$prob_non_zero[which(params$soil_depth$population == toupper(locality_i))],
+  pop_sd <- cadence_rbgamma(n = length(pop_vec), prob = params$soil_depth$prob_non_zero[which(params$soil_depth$population == toupper(locality_i))],
                              scale = params$soil_depth$gamma_scale[which(params$soil_depth$population == toupper(locality_i))], 
                              shape = params$soil_depth$gamma_shape[which(params$soil_depth$population == toupper(locality_i))])
   
