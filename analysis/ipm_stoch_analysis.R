@@ -71,16 +71,16 @@ localities <- c("Cr", "Hk", "Ks", "Ru")
 shrub_shading <- seq(0,6, length.out = 4)
 herb_shading <- seq(0,6, length.out = 4)
 
-slope <- seq(0, 50, length.out = 6)
-rock <- seq(0, 80, length.out = 6)
-soil_depth <- seq(0,10, length.out = 6)
+slope <- seq(0, 50, length.out = 4)
+rock <- seq(0, 80, length.out = 4)
+soil_depth <- seq(0,10, length.out = 4)
 
 model <- c("ACCESS1-3", "CESM1-BGC", "CMCC-CM", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
-hist <- expand.grid(localities = localities,
+hist_shrub <- expand.grid(localities = localities,
                     shrub_shading = shrub_shading,
-                    herb_shading = herb_shading,
+                    herb_shading = 2,
                     slope = 14,
                     rock = 30,
                     soil_depth = 5,
@@ -88,8 +88,18 @@ hist <- expand.grid(localities = localities,
                     scenario = NA,
                     model = NA
 ) 
-fut <- expand.grid(localities = localities, 
-                   shrub_shading = shrub_shading,
+hist_herb <- expand.grid(localities = localities,
+                         shrub_shading = 2,
+                         herb_shading = herb_shading,
+                         slope = 14,
+                         rock = 30,
+                         soil_depth = 5,
+                         time = "hist",
+                         scenario = NA,
+                         model = NA
+)
+fut_herb <- expand.grid(localities = localities, 
+                   shrub_shading = 2,
                    herb_shading = herb_shading,
                    slope = 14,
                    rock = 30,
@@ -97,6 +107,16 @@ fut <- expand.grid(localities = localities,
                    time = "future",
                    scenario = scenario,
                    model = model
+) 
+fut_shrub <- expand.grid(localities = localities, 
+                        shrub_shading = shrub_shading,
+                        herb_shading = 2,
+                        slope = 14,
+                        rock = 30,
+                        soil_depth = 5,
+                        time = "future",
+                        scenario = scenario,
+                        model = model
 ) 
 slope <- expand.grid(localities = "CR", 
                      shrub_shading = 2,
@@ -131,33 +151,35 @@ soil <- expand.grid(localities = "CR",
                    model = NA
 ) 
 
-df_env <- rbind(hist, fut, rock, slope, soil) %>% 
+df_env <- rbind(hist_herb, hist_shrub, fut_herb, fut_shrub, rock, slope, soil) %>% 
   mutate(localities = as.character(localities))
 
-rep <- rep(c(1:nrow(df_env)), 10)
+run <- c(1:nrow(df_env))
 
 
-# ### Set up parallel
-# 
-# Local machine
-# cl <- makeCluster(detectCores()-1)
+### Set up parallel
+
+# # Local machine
+# cl <- makeCluster(detectCores()-4)
 # 
 # clusterExport(cl=cl, c("df_env", "ipm_loop", "run_ipm",
-#                        "params", "climate_models", "rep",
-#                        "U", "L", "n", "n_it", "lag",
-#                        "sampling_env", "FLM_clim_predict"))
+#                        "params", "climate_models", "run",
+#                        "U", "L", "n", "n_it", 
+#                        "sampling_env", "mod_pred"))
 # 
-# clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast")))
+# clusterEvalQ(cl, c(library("ipmr"), library("dplyr"), library("forecast"), library("glmnet") ))
 # 
 # df <- clusterApply(cl,
-#                   as.list(c(76:length(rep))),
-#                   function(x) tryCatch(ipm_loop(i = rep[x], df_env = df_env,
+#                   as.list(c(1:length(run))),
+#                   function(x) tryCatch(
+#                     ipm_loop(i = run[x], df_env = df_env,
 #                                                 params = params,
 #                                                 climate_models = climate_models,
 #                                                 n_it = n_it,
 #                                                 U = U, L = L, n = n,
 #                                                 save = T),
-#                                        error = function(e) NULL)) %>%
+#                                        error = function(e) NULL)
+#                   ) %>%
 #   bind_rows()
 # 
 # stopCluster(cl)
@@ -165,14 +187,19 @@ rep <- rep(c(1:nrow(df_env)), 10)
 # write.csv(df, file = "results/overview_lambda_env_levels.csv",
 #           row.names = F)
 
+
 ## Run as an array job
 taskID <- as.integer(sys.getenv("SLURM_ARRAY_TASK_ID"))
 
-df <- ipm_loop(i = rep[taskID], df_env = df_env,
+df <- ipm_loop(i = run[taskID], df_env = df_env,
                params = params,
                climate_models = climate_models,
                n_it = n_it,
                U = U, L = L, n = n,
                save = T)
 
-write.csv(df, file = file.path("results", "ipm", paste0("ipm_stoch_", taskID, ".csv")), row.names = F)
+
+
+
+
+

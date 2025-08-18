@@ -356,7 +356,7 @@ ipm_loop <- function(i, df_env, params,
   )
   
   if(save){
-    write.csv(df1, file = paste0("results/stoch_ipms/lambda_env_levels_", i, ".csv"), row.names = F)
+    write.csv(df1, file = paste0("results/ipms/stoch_run_", i, ".csv"), row.names = F)
   }
   
   return(df1)
