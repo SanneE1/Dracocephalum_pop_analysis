@@ -25,7 +25,7 @@ plot_coef_clim_shading <- function(model, save = F, name) {
   
   clim_labels = c('pr' = 'Precipitation',
                   'tas' = 'Temperature',
-                  'pet' = 'Potential \nEvapotranspiration')
+                  'pet' = 'Potential \nEvapotransp.')
   
   herb_coef <- ggplot(df %>% filter(Shrub_shading == 0), 
                       aes(x = period, y = coef_value, colour = Herb_shading, group = Herb_shading)) +
