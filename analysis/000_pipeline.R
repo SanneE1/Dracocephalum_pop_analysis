@@ -76,17 +76,6 @@ source("analysis/state_independent_variables.R")
 # Population model
 # ----------------------------------------------------------------------
 
-# deterministic ipm (locality/year specific. no other covariates)
-source("analysis/ipm_det_analysis.R")
-# File produced:
-# result/rds/deterministic_ipm.rds
-
-# Long-term IPM with climate & environmental variables
-# takes a long time. With submit_stoch_ipm.sh it can be run on the UFZ HPC
-source("analysis/ipm_stoch_analysis.R")
-# File produced:
-# result/overview_lambda_env_levels.csv
-
 # Short-term IBM Calculate extinction probability from 2022-2100
 # Takes a long time. with submit_extinct_prob.sh it can be run on the UFZ HPC
 source("analysis/extinction_prop.R")

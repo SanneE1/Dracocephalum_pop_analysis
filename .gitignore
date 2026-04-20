@@ -3,6 +3,13 @@
 /_targets/
 /article/
 
+/analysis/check_states_and_state_variables.Rmd
+/analysis/climate_exploration.Rmd
+/analysis/climate_stations.Rmd
+/analysis/*.sh
+/analysis/ipm_det_analysis.R
+/analysis/ipm_stoch_analysis.R
+
 # History files
 .Rhistory
 .Rapp.history
