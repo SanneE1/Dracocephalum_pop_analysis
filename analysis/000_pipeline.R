@@ -27,7 +27,7 @@ source("analysis/data_formatting.R")
 
 # Run "R/CHELSA_data_get_using_Python.R" manually. You'll need to switch to python
 # and copy paste the lines produced in the 1st half of the script. After downloading through 
-# python you continueu on with data processing in R (more details in script)
+# python you continue on with data processing in R (more details in script)
 # File produced: 
 # "data/CHELSA_data.csv"
 
@@ -55,11 +55,17 @@ source("analysis/Arima_climate_models.R")
 # Vital rates
 # ----------------------------------------------------------------------
 
-# Functional linear models for state dependent variables
-source("analysis/FLM_climate_models.R")
+# Size dependent vital rates
+source("analysis/vital_rates_models_elastnet.R")
 # Files produced:
-# results/rds/VR_FLM.rds
-# results/rds/VR_mod_infos.rds
+# results/rds/seasons_surv.rds
+# results/rds/seasons_growth.rds
+# results/rds/seasons_growth_sd.rds
+# results/rds/seasons_flowp.rds
+# results/rds/seasons_seedp.rds
+# results/rds/seasons_seedn.rds
+# results/rds/seasons_seedn_sd.rds
+
 
 # State independent variables
 source("analysis/state_independent_variables.R")
@@ -96,11 +102,6 @@ source("analysis/extinction_prop.R")
 # Plot population model results
 source("analysis/Plot_results.R")
 
-
-# Create document sumarizing results
-rmarkdown::render('results/Summarise results.Rmd', 
-                  output_format = "pdf_document",
-                  output_dir = "results/")
 
 
 

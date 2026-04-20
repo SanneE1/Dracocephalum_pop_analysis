@@ -1,22 +1,22 @@
 ## Plotting functions
 ## 
 
-plot_coef_clim_shading <- function(model, save = F, name) {
+plot_coef_clim_shading <- function(model, save = F, name, plot_title) {
   
   c_surv <- coef(model)
   
   df <- bind_rows(expand.grid(variable = c("pr", "tas", "pet"),
                               period = c("spring", "summer", "dormant"),
                               Herb_shading = c(0, 2, 4, 6),
-                              Shrub_shading = 0),
+                              Shrub_shading = 4),
                   expand.grid(variable = c("pr", "tas", "pet"),
                               period = c("spring", "summer", "dormant"),
-                              Herb_shading = 0,
+                              Herb_shading = 4,
                               Shrub_shading = c(0, 2, 4, 6))) %>%
     rowwise() %>%
     mutate(fix_eff = c_surv[which(rownames(c_surv) == paste(variable, period, sep = "_"))],
-           herb_int = c_surv[which(rownames(c_surv) == paste0("herb_shading_t0:", paste(variable, period, sep = "_")))],
-           shrub_int = c_surv[which(rownames(c_surv) == paste0("shrub_shading_t0:", paste(variable, period, sep = "_")))],
+           herb_int = c_surv[grep(paste0("herb_shading_t\\d:", paste(variable, period, sep = "_")), rownames(c_surv))],
+           shrub_int = c_surv[grep(paste0("shrub_shading_t\\d:", paste(variable, period, sep = "_")), rownames(c_surv))],
            coef_value = fix_eff + (herb_int * Herb_shading) + (shrub_int * Shrub_shading)
     ) %>% ungroup() %>%
     mutate(Herb_shading = as.factor(Herb_shading),
@@ -27,7 +27,7 @@ plot_coef_clim_shading <- function(model, save = F, name) {
                   'tas' = 'Temperature',
                   'pet' = 'Potential \nEvapotransp.')
   
-  herb_coef <- ggplot(df %>% filter(Shrub_shading == 0), 
+  herb_coef <- ggplot(df %>% filter(Shrub_shading == 4), 
                       aes(x = period, y = coef_value, colour = Herb_shading, group = Herb_shading)) +
     geom_line(linewidth = 1) +
     geom_point(size = 2) +
@@ -38,7 +38,7 @@ plot_coef_clim_shading <- function(model, save = F, name) {
     ylab("Coefficient estimate") + xlab("Time Period") +
     facet_grid(rows = vars(variable), labeller = as_labeller(clim_labels))
   
-  shrub_coef <- ggplot(df %>% filter(Herb_shading == 0), 
+  shrub_coef <- ggplot(df %>% filter(Herb_shading == 4), 
                        aes(x = period, y = coef_value, colour = Shrub_shading, group = Shrub_shading)) +
     geom_line(linewidth = 1) +
     geom_point(size = 2) +
@@ -49,7 +49,7 @@ plot_coef_clim_shading <- function(model, save = F, name) {
     ylab("Coefficient estimate") + xlab("Time Period") +
     facet_grid(rows = vars(variable), labeller = as_labeller(clim_labels))
   
-  combined_coef_plot <- herb_coef + shrub_coef + plot_layout(guides = "collect") & theme(legend.position = 'bottom')
+  combined_coef_plot <- herb_coef + shrub_coef + plot_layout(guides = "collect") + plot_annotation(title = plot_title) & theme(legend.position = 'bottom')
   
   if(save) {
     
@@ -61,3 +61,5 @@ plot_coef_clim_shading <- function(model, save = F, name) {
   return(combined_coef_plot)
   
 }
+
+

@@ -38,7 +38,10 @@ mod_pred <- function(indi, model,
                              herb_shading_t0:tas_spring + shrub_shading_t0:tas_spring +
                              herb_shading_t0:pet_dormant + shrub_shading_t0:pet_dormant +
                              herb_shading_t0:pet_summer + shrub_shading_t0:pet_summer +
-                             herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring, 
+                             herb_shading_t0:pet_spring + shrub_shading_t0:pet_spring +
+                             ln_stems_t0:slope + 
+                             pr_dormant:slope + tas_dormant:slope + pet_dormant:slope + pr_summer:slope + tas_summer:slope + pet_summer:slope + pr_spring:slope + tas_spring:slope + pet_spring:slope +
+                             pr_dormant:ln_stems_t0 + tas_dormant:ln_stems_t0 + pet_dormant:ln_stems_t0 + pr_summer:ln_stems_t0 + tas_summer:ln_stems_t0 + pet_summer:ln_stems_t0 + pr_spring:ln_stems_t0 + tas_spring:ln_stems_t0 + pet_spring:ln_stems_t0, 
                            data = new_data)[, -1]
   
   pt <- predict(model, newx = new_data, type = "response")
@@ -51,6 +54,7 @@ yearly_loop <- function(yr, clim, locality,
   
   # retrieve this year's climate
   clim_yr <- clim %>% filter(year_t0 == yr)
+  clim_fec <- clim %>% filter(year_t0 == (yr - 1))
   
   # calculate population size 
   Npop <- nrow(indi)
@@ -80,7 +84,7 @@ yearly_loop <- function(yr, clim, locality,
   # calculate total number of seeds produced
   flowp <- rbinom(n = Npop, prob = mod_pred(indi = indi, model = params$pflower_mod,
                                             params = params, locality = locality, 
-                                            clim = clim_yr), 
+                                            clim = clim_fec), 
                   size = 1)
   
   seedp <- rep(NA, Npop)
@@ -89,7 +93,7 @@ yearly_loop <- function(yr, clim, locality,
                                        prob = mod_pred(indi = indi[which(flowp == 1),], 
                                                        model = params$pseed_mod,
                                                        params = params, locality = locality, 
-                                                       clim = clim_yr), 
+                                                       clim = clim_fec), 
                                        size = 1)
   }
   
@@ -97,7 +101,7 @@ yearly_loop <- function(yr, clim, locality,
   if(length(which(seedp == 1)) > 0 ) {
     seed_mean <- mod_pred(indi = indi[which(seedp == 1),], model = params$nseed_mod,
                           params = params, locality = locality, 
-                          clim = clim_yr)
+                          clim = clim_fec)
     
     seed_gamma_shape1 <- (seed_mean^2)/(params$nseed_sd^2)
     seed_gamma_shape2 <- (seed_mean)/(params$nseed_sd^2)
@@ -112,29 +116,29 @@ yearly_loop <- function(yr, clim, locality,
   tot_seeds <- sum(nseeds, na.rm = T)
   
   
-  # Divide seeds into seedling and seedbank
-  
-  to_sb1 <- rbinom(1, prob = (1-params$germ_mean), size = tot_seeds)
-  to_sdl <- tot_seeds - to_sb1
-  
   # Discrete stages  ------------------------------------------------------
   
-  ## do seeds in seedbanks germinate or stay sb
+  # survival of discrete stages
+  seeds <- rbinom(1, prob = params$seed_surv1, size = tot_seeds)
+  sb1 <- rbinom(1, prob = params$seed_surv2, size = sb1)
+  sb2 <- rbinom(1, prob = params$seed_surv3, size = sb2)
+  sdl_to_plant <- rbinom(1, prob = params$sdl_surv_mean, size = sdl)
+    
+  # discrete stage transitions
+  
+  seed_to_sdl <- rbinom(1, prob = params$germ_mean, size = seeds)
+  seed_to_sb1 <- seeds - seed_to_sdl
+  
   sb1_to_sdl <- rbinom(1, prob = params$germ_mean, size = sb1)
   sb1_to_sb2 <- sb1 - sb1_to_sdl
   
   sb2_to_sdl <- rbinom(1, prob = params$germ_mean, size = sb2) 
   
-  sdl_to_plant <- rbinom(1, prob = params$sdl_surv_mean, size = sdl)
+  sb1 = seed_to_sb1
+  sb2 = sb1_to_sb2
+  sdl = seed_to_sdl + sb1_to_sdl + sb2_to_sdl
   
-  ## how many transitioning seeds survive to next census in each stage  
-  sb1 <- rbinom(1, prob = params$seed_surv1, size = to_sb1)
-  sb2 <- rbinom(1, prob = params$seed_surv2, size = sb1_to_sb2)
-  
-  sdl <- rbinom(1, prob = params$seed_surv2, size = sb1_to_sdl) +
-    rbinom(1, prob = params$seed_surv3, size = sb2_to_sdl)
-  
-  # New recruits into plant stage
+  # recruitment into continuous state
   new_indi <- data.frame(
     size = rnorm(sdl_to_plant, mean = params$sdl_d_int, sd = params$sdl_d_sd),
     Hshading = rpois(sdl_to_plant, Hshading),
@@ -187,8 +191,8 @@ ibm_ext_p <- function(i, df_env, params,
   pop_vec <- pop_vec[[grep(toupper(locality_i), names(pop_vec), value = T)]] 
   sdl <- sdl_n[[grep(toupper(locality_i), names(sdl_n), value = T)]]
   
-  sb1 = 2000
-  sb2 = 1000
+  sb1 = 10000
+  sb2 = 5000
   
   # set up starting shading & slope
   pop_Hshading <- rbinom(n = length(pop_vec), 20, prob = (Hshading_i/20))

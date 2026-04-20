@@ -1,8 +1,6 @@
 ## Script to estimate germination rate
 
-data <- read.csv('data/Dracocephalum_with_vital_rates.csv') %>%
-  rowwise() %>%
-  mutate(tot_shading_t0 = herb_shading_t0 + shrub_shading_t0)
+data <- read.csv('data/Dracocephalum_with_vital_rates.csv')
 
 n_sdl_t3 <- data %>% filter(stage_t0 == "sdl") %>% 
   group_by(population, year_t0) %>% summarise(n_sdl_t3 = n()) %>%
@@ -28,7 +26,7 @@ df <- plyr::join_all(list(n_seeds_t0, n_seeds_t1, n_seeds_t2, n_sdl_t3)) %>% ung
 germ_model <- rethinking::ulam(
   alist(
     ln_n_sdl_t3 ~ dnorm(sdl_mean, sdl_sd),
-    sdl_mean <- (n_seeds_t2 * 0.45 * germ) + (n_seeds_t1 * (0.45 * (1-germ)) * (0.089 * germ)) + ((n_seeds_t1 * (0.45 * (1-germ)) * (0.089 * germ)) * (0.663 * germ)), 
+    sdl_mean <- (n_seeds_t2 * 0.45 * germ) + (n_seeds_t1 * (0.45 * (1-germ)) * (0.089 * germ)) + ((n_seeds_t0 * (0.45 * (1-germ)) * (0.089 * (1-germ))) * (0.663 * germ)), 
     germ ~ dbeta(alpha, kappa),
     alpha ~ dnorm(2, 0.25),
     kappa ~ dnorm(10, 1),
@@ -41,13 +39,15 @@ germ_model <- rethinking::ulam(
 sdl_data <- data %>% filter(stage_t0 == "sdl")
 
 ## herb & shrub shading not significant for seedling survival and CI of estimates includes 0
-# sdl_surv <- glmer(survival_t1 ~ population + herb_shading_t0 + shrub_shading_t0 + (1|year_t0), family = "binomial", data = sdl_data)
-# confint.merMod(sdl_surv)
-sdl_surv <- glmer(survival_t1 ~ population + soil_depth + rock + slope + 
-                    tot_shading_t0 + (1|year_t0), 
-                  family = "binomial", 
+sdl_surv <- glmer(survival_t1 ~ population + herb_shading_t0 + shrub_shading_t0 + (1|year_t0), family = "binomial", data = sdl_data)
+confint.merMod(sdl_surv)
+
+
+sdl_surv <- glmer(survival_t1 ~ population + soil_depth + rock + slope +
+                    (1|year_t0),
+                  family = "binomial",
                   data = na.omit(sdl_data[c('survival_t1', 'population', 'soil_depth',
-                                          'rock', 'slope', 'tot_shading_t0', 'year_t0')])
+                                          'rock', 'slope', 'year_t0')])
 )
 
 surv_drop <- drop1(sdl_surv, test = "Chisq") %>% 
@@ -69,13 +69,15 @@ sdl_surv <- glmer(formula(base_surv),
 
 
 ## herb & shrub shading not significant for seedling size distribution and CI of estimates includes 0
-# sdl_size_d <- lmer(ln_stems_t1 ~ population + herb_shading_t0 + shrub_shading_t0 + (1|year_t0), data = sdl_data %>% filter(survival_t1 == 1))
-# confint.merMod(sdl_size_d)
-sdl_size_d <- lmer(ln_stems_t1 ~ population + soil_depth + rock + slope + 
-                     tot_shading_t0 + (1|year_t0), 
-                   data = na.omit(sdl_data[c('survival_t1', 'ln_stems_t1', 'population', 
-                                             'soil_depth', 'rock', 'slope', 
-                                             'tot_shading_t0', 'year_t0')]) %>% 
+sdl_size_d <- lmer(ln_stems_t1 ~ population + herb_shading_t0 + shrub_shading_t0 + (1|year_t0), data = sdl_data %>% filter(survival_t1 == 1))
+confint.merMod(sdl_size_d)
+
+
+sdl_size_d <- lmer(ln_stems_t1 ~ population + soil_depth + rock + slope +
+                   (1|year_t0),
+                   data = na.omit(sdl_data[c('survival_t1', 'ln_stems_t1', 'population',
+                                             'soil_depth', 'rock', 'slope',
+                                             'year_t0')]) %>%
                                     filter(survival_t1 == 1)
                    )
 

@@ -4,7 +4,6 @@ library(glmnet)
 library(lme4)
 
 source("R/functions_ibm.R")
-# source("R/functions_ipmr.R")
 
 # Projections will be from 2022 to 2100
 n_it = 79
@@ -122,21 +121,27 @@ sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
 
 ### Loop through different populations and env_param levels 
 localities <- c("Cr", "Hk", "Ks", "Ru")
-shrub_shading <- seq(0,6, length.out = 4)
-herb_shading <- seq(0,6, length.out = 4)
+shrub_shading <- c(0,2,4,6)
+herb_shading <- c(0,2,4,6)
 
 model <- c("ACCESS1-3", "CESM1-BGC", "CMCC-CM", "MIROC5")
 scenario <- c("rcp45", "rcp85")
 
 
-df_env <- expand.grid(localities = localities, 
-                      shrub_shading = shrub_shading, 
+df_envH <- expand.grid(localities = localities, 
+                      shrub_shading = 2, 
                       herb_shading = herb_shading,
                       scenario = scenario,
                       model = model
 ) 
+df_envS <- expand.grid(localities = localities, 
+                       shrub_shading = shrub_shading, 
+                       herb_shading = 2,
+                       scenario = scenario,
+                       model = model
+) 
 
-df_env <- df_env %>% rowid_to_column()
+df_env <- rbind(df_envH, df_envS) %>% rowid_to_column()
 
 ## -------------------------------------------------------------------------------------------
 ## IBM
@@ -147,7 +152,7 @@ print("start ibm")
 # args <- commandArgs(trailingOnly = TRUE)
 # taskID = as.integer(args[1])
 
-for(taskID in c(1:512)) {
+for(taskID in c(1:256)) {
 results <- lapply(as.list(c(1:10)), function(x) {
   a <- ibm_ext_p(i = taskID, df_env = df_env,
                  params = params,
