@@ -5,7 +5,6 @@ library(RColorBrewer)
 library(lme4)
 library(patchwork)
 library(rethinking)
-library(ipmr)
 library(mgcv)
 library(parallel)
 library(forecast)
@@ -38,19 +37,6 @@ source("analysis/data_formatting.R")
 # "data/CHELSA_future_ts_formatted.csv"
 
 
-rmarkdown::render('analysis/climate_stations.Rmd', 
-                  output_dir = "results/exploratory plots/")
-rmarkdown::render('analysis/climate_exploration.Rmd', 
-                  output_dir = "results/exploratory plots/")
-rmarkdown::render('analysis/check_states_and_state_variables.Rmd', 
-                  output_dir = "results/exploratory plots/")
-
-# Create Arima model that can be used to simulate climate for IPMs
-source("analysis/Arima_climate_models.R")
-# File produced:
-# results/rds/ARIMA_clim_mods.rds
-
-
 # ----------------------------------------------------------------------
 # Vital rates
 # ----------------------------------------------------------------------
@@ -73,7 +59,7 @@ source("analysis/state_independent_variables.R")
 # results/rds/state_independent_VR.rds
 
 # ----------------------------------------------------------------------
-# Population model
+# Population dynamics model
 # ----------------------------------------------------------------------
 
 # Short-term IBM Calculate extinction probability from 2022-2100
@@ -82,7 +68,17 @@ source("analysis/extinction_prop.R")
 # File produced:
 # results/rds/extinction_probability.rds
 
+# ----------------------------------------------------------------------
+# IBM diagnostics
+# ----------------------------------------------------------------------
 
+# Run model during observational data period for in sample model validation
+# (out sample plotted in Plot_results.R)
+source("analysis/IBM_validation.R")
+
+# Run same future scenarios for small selection of shading values to evaluate 
+# effect of different starting values
+source("analysis/IBM_seedbank_sensitivity.R")
 
 # ----------------------------------------------------------------------
 # Process results
