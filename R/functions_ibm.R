@@ -169,12 +169,15 @@ yearly_loop <- function(yr, clim, locality,
   
 }
 
+
 ibm_ext_p <- function(i, df_env, params,
                       fut_clim, clim_hist,
-                      pop_vec, sdl_n,
-                      n_it) {
+                      start_data, start_n,
+                      start_yr, end_yr) {
   # gc()
   message(i)
+  
+  n_it = end_yr - start_yr
   
   # Simulation settings
   scenario_i <- df_env$scenario[i]
@@ -188,8 +191,13 @@ ibm_ext_p <- function(i, df_env, params,
   
   
   # Select pop_vectors
-  pop_vec <- pop_vec[[grep(toupper(locality_i), names(pop_vec), value = T)]] 
-  sdl <- sdl_n[[grep(toupper(locality_i), names(sdl_n), value = T)]]
+  # Select pop_vectors
+  pop_vec <-  sample((start_data[[toupper(locality_i)]] %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0,
+                     start_n[[locality_i]], replace = TRUE)
+  
+  sdl <- ceiling(nrow(start_data[[locality_i]] %>% filter(stage_t0 == "sdl")) *
+                   (start_n[[locality_i]] / nrow(start_data[[locality_i]] %>% filter(stage_t0 %in% c("veg","flow")))))
+  
   
   sb1 = 10000
   sb2 = 5000
@@ -198,16 +206,16 @@ ibm_ext_p <- function(i, df_env, params,
   pop_Hshading <- rbinom(n = length(pop_vec), 20, prob = (Hshading_i/20))
   pop_Sshading <- rbinom(n = length(pop_vec), 20, prob = (Sshading_i/20))
   pop_slope <- cadence_rbgamma(n = length(pop_vec), prob = params$slope$prob_non_zero[which(params$slope$population == toupper(locality_i))],
-                                scale = params$slope$gamma_scale[which(params$slope$population == toupper(locality_i))], 
-                                shape = params$slope$gamma_shape[which(params$slope$population == toupper(locality_i))])
+                               scale = params$slope$gamma_scale[which(params$slope$population == toupper(locality_i))], 
+                               shape = params$slope$gamma_shape[which(params$slope$population == toupper(locality_i))])
   
   pop_rock <- cadence_rbgamma(n = length(pop_vec), prob = params$rock$prob_non_zero[which(params$rock$population == toupper(locality_i))],
-                               scale = params$rock$gamma_scale[which(params$rock$population == toupper(locality_i))], 
-                               shape = params$rock$gamma_shape[which(params$rock$population == toupper(locality_i))])
+                              scale = params$rock$gamma_scale[which(params$rock$population == toupper(locality_i))], 
+                              shape = params$rock$gamma_shape[which(params$rock$population == toupper(locality_i))])
   
   pop_sd <- cadence_rbgamma(n = length(pop_vec), prob = params$soil_depth$prob_non_zero[which(params$soil_depth$population == toupper(locality_i))],
-                             scale = params$soil_depth$gamma_scale[which(params$soil_depth$population == toupper(locality_i))], 
-                             shape = params$soil_depth$gamma_shape[which(params$soil_depth$population == toupper(locality_i))])
+                            scale = params$soil_depth$gamma_scale[which(params$soil_depth$population == toupper(locality_i))], 
+                            shape = params$soil_depth$gamma_shape[which(params$soil_depth$population == toupper(locality_i))])
   
   # Set up start population
   indi <- data.frame(
@@ -220,17 +228,17 @@ ibm_ext_p <- function(i, df_env, params,
   )
   
   pop_size <- data.frame(
-    yr = c(2021:2100),
-    n_plants = c(nrow(indi), rep(NA, 79)),
-    n_sdl = c(sdl, rep(NA, 79)),
-    n_sb1 = c(sb1, rep(NA, 79)),
-    n_sb2 = c(sb2, rep(NA, 79))
+    yr = c(start_yr:end_yr),
+    n_plants = c(nrow(indi), rep(NA, n_it)),
+    n_sdl = c(sdl, rep(NA, n_it)),
+    n_sb1 = c(sb1, rep(NA, n_it)),
+    n_sb2 = c(sb2, rep(NA, n_it))
   )
   
   ## IBM
-  yr <- 2021
+  yr <- start_yr
   
-  while (yr < 2100 & nrow(indi) > 0){
+  while (yr < end_yr & nrow(indi) > 0){
     
     ibm_yr <- yearly_loop(yr, clim, locality = locality_i,
                           indi, sdl, sb1, sb2,
@@ -243,10 +251,10 @@ ibm_ext_p <- function(i, df_env, params,
     sb1 <- ibm_yr$sb1
     sb2 <- ibm_yr$sb2
     
-    pop_size$n_plants[yr - 2020] <- nrow(indi)
-    pop_size$n_sdl[yr - 2020] <- sdl
-    pop_size$n_sb1[yr - 2020] <- sb1
-    pop_size$n_sb2[yr - 2020] <- sb2
+    pop_size$n_plants[yr - start_yr] <- nrow(indi)
+    pop_size$n_sdl[yr - start_yr] <- sdl
+    pop_size$n_sb1[yr - start_yr] <- sb1
+    pop_size$n_sb2[yr - start_yr] <- sb2
     
   }
   
