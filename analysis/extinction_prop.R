@@ -1,3 +1,5 @@
+set.seed(42)
+
 ### script to run extinction probability analysis
 library(tidyverse)
 library(glmnet)
@@ -5,8 +7,10 @@ library(lme4)
 
 source("R/functions_ibm.R")
 
-# Projections will be from 2022 to 2100
-n_it = 79
+# Projections will be from 2019 to 2100
+start_yr = 2018
+end_yr = 2100
+n_it = end_yr - start_yr
 
 ## -------------------------------------------------------------------------------------------
 ## Format CHELSA's time series for IBM
@@ -100,19 +104,25 @@ params <- list(
 
 ## Starting population vector
 data <- read.csv("data/Dracocephalum_with_vital_rates.csv") %>%
-  filter(year_t0 == "2021")
+  filter(year_t0 == start_yr)
 data <- split(data, data$population)
-pop_n <- list(CR = 45,
-              HK = 202,
-              KS = 25,
-              RU = 43
-)
 
-pop_vec_start <- lapply(data, function(x) (x %>% filter(stage_t0 %in% c("veg","flow")))$ln_stems_t0) %>%
-  purrr::map2(., pop_n, ~ rep(.x, round(.y/length(.x),0)))
 
-sdl_n <- lapply(data, function(x) nrow(x %>% filter(stage_t0 == "sdl")))
+obs_n <- readxl::read_xlsx("data/Population_sizes_validation.xlsx") %>%
+  filter(year == start_yr & stage == "total") %>%
+  select(-c(stage, `Haknovec 2`)) %>%
+  pivot_longer(cols = -year, names_to = "population", values_to = "obs_size") %>%
+  mutate(population = population |> 
+           recode_values(
+             "Císařská rokle" ~ "Cr",
+             "Haknovec 1" ~ "Hk",
+             "Kodská stěna" ~ "Ks",
+             "Radotínské údolí" ~ "Ru"
+           )) %>%
+  select(-year)
 
+pop_n <- as.list(obs_n$obs_size)
+names(pop_n) <- obs_n$population
 
 ## -------------------------------------------------------------------------------------------
 ## Set up environmental values
@@ -152,15 +162,14 @@ print("start ibm")
 # args <- commandArgs(trailingOnly = TRUE)
 # taskID = as.integer(args[1])
 
-for(taskID in c(1:256)) {
-results <- lapply(as.list(c(1:10)), function(x) {
+for(taskID in c(1:nrow(df_env))) {
+results <- lapply(as.list(c(1:50)), function(x) {
   a <- ibm_ext_p(i = taskID, df_env = df_env,
                  params = params,
                  fut_clim = fut_clim,
                  clim_hist = hist_clim,
-                 pop_vec = pop_vec_start,
-                 sdl_n = sdl_n,
-                 n_it = n_it)
+                 start_data = data, start_n = pop_n,
+                 start_yr = start_yr, end_yr = end_yr)
   return(a)}) %>% bind_rows()
 
 saveRDS(results, file = paste0("results/ibm/df_", taskID, ".rds"))
