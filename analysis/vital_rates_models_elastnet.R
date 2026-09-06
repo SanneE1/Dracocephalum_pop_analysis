@@ -100,7 +100,6 @@ surv_final <- glmnet(X_surv, y_surv, family = "binomial", alpha = 0.5, lambda = 
 coef_surv <- coef(surv_final)
 non_zero_surv <- coef_surv[coef_surv[,1] != 0, , drop = FALSE]
 
-
 saveRDS(surv_final, file = "results/rds/seasons_surv.rds")
 gc()
 
@@ -301,5 +300,82 @@ sd_seedn <- sd(obs - pred)
 saveRDS(sd_seedn, file = "results/rds/seasons_seedn_sd.rds")
 
 
+
+
+#-------------------------------------------------------------------------------------------
+# Plot covariate estimates (requires the X and y matrices and final models to be loaded)
+#-------------------------------------------------------------------------------------------
+source("R/functions_plotting.R")
+
+boot_surv <- bootstrap_glmnet_coefs(x = X_surv, y = y_surv,
+                                     alpha = 0.5,          # match your original fit
+                                     lambda = surv_final$lambda,
+                                     n_boot = 1000,
+                                     family = "binomial")
+
+plot_coef_clim_shading(model = surv_final, boot_coefs = boot_surv,
+                       save = T, name = "Survival_clim_shading_coef", plot_title = 'Survival')
+
+
+boot_growth <- bootstrap_glmnet_coefs(x = X_growth, y = y_growth,
+                                    alpha = 0.5,          # match your original fit
+                                    lambda = growth_final$lambda,
+                                    n_boot = 1000,
+                                    family = "gaussian")
+
+plot_coef_clim_shading(model = growth_final, boot_coefs = boot_growth,
+                       save = T, name = "Growth_clim_shading_coef", plot_title = 'Growth')
+
+
+boot_flowp <- bootstrap_glmnet_coefs(x = X_flowp, y = y_flowp,
+                                    alpha = 0.5,          # match your original fit
+                                    lambda = flowp_final$lambda,
+                                    n_boot = 1000,
+                                    family = "binomial")
+
+plot_coef_clim_shading(model = flowp_final, boot_coefs = boot_flowp,
+                       save = T, name = "Flower_P_clim_shading_coef", plot_title = 'Flower probability')
+
+boot_seedp <- bootstrap_glmnet_coefs(x = X_seedp, y = y_seedp,
+                                     alpha = 0.5,          # match your original fit
+                                     lambda = seedp_final$lambda,
+                                     n_boot = 1000,
+                                     family = "binomial")
+
+plot_coef_clim_shading(model = seedp_final, boot_coefs = boot_seedp,
+                       save = T, name = "Seed_P_clim_shading_coef", plot_title = 'Seed probability')
+
+boot_seedn <- bootstrap_glmnet_coefs(x = X_seedn, y = y_seedn,
+                                     alpha = 0.5,          # match your original fit
+                                     lambda = seedn_final$lambda,
+                                     n_boot = 1000,
+                                     family = Gamma(link = 'log'))
+
+plot_coef_clim_shading(model = seedn_final, boot_coefs = boot_seedn,
+                       save = T, name = "Seed_N_clim_shading_coef", plot_title = 'Number of seeds')
+
+
+View(build_effect_size_table(model = surv_final, boot_coefs = boot_surv) %>%
+  arrange(shading_type, variable, period) %>%
+  filter(sign_reversal == T & ci_excludes_baseline == T & ci_excludes_zero == T))
+
+View(build_effect_size_table(model = surv_final, boot_coefs = boot_surv) %>%
+       arrange(shading_type, variable, period))
+
+
+View(build_effect_size_table(model = growth_final, boot_coefs = boot_growth) %>%
+       arrange(shading_type, variable, period) %>%
+       filter(sign_reversal == T & ci_excludes_baseline == T & ci_excludes_zero == T))
+
+View(build_effect_size_table(model = growth_final, boot_coefs = boot_growth) %>%
+       arrange(shading_type, variable, period))
+
+
+View(build_effect_size_table(model = flowp_final, boot_coefs = boot_flowp) %>%
+       arrange(shading_type, variable, period) %>%
+       filter(sign_reversal == T & ci_excludes_baseline == T & ci_excludes_zero == T))
+
+View(build_effect_size_table(model = flowp_final, boot_coefs = boot_flowp) %>%
+       arrange(shading_type, variable, period))
 
 
