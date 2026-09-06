@@ -126,13 +126,13 @@ yearly_loop <- function(yr, clim, locality,
     
   # discrete stage transitions
   
-  seed_to_sdl <- rbinom(1, prob = params$germ_mean, size = seeds)
+  seed_to_sdl <- rbinom(1, prob = params$sdl_est_mean, size = seeds)
   seed_to_sb1 <- seeds - seed_to_sdl
   
-  sb1_to_sdl <- rbinom(1, prob = params$germ_mean, size = sb1)
+  sb1_to_sdl <- rbinom(1, prob = params$sdl_est_mean, size = sb1)
   sb1_to_sb2 <- sb1 - sb1_to_sdl
   
-  sb2_to_sdl <- rbinom(1, prob = params$germ_mean, size = sb2) 
+  sb2_to_sdl <- rbinom(1, prob = params$sdl_est_mean, size = sb2) 
   
   sb1 = seed_to_sb1
   sb2 = sb1_to_sb2

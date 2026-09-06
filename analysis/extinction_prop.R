@@ -84,7 +84,7 @@ params <- list(
   ## (i.e. produced in t, surv to census t+1 (with % above), not germinated in t+1 and 
   seed_surv3 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
   
-  germ_mean = mean(state_independent_variables$est_germination_rate$germ),     
+  sdl_est_mean = mean(state_independent_variables$est_germination_rate$germ),     
   
   sdl_surv_mean = boot::inv.logit(fixef(state_independent_variables$sdl_surv)),
   
