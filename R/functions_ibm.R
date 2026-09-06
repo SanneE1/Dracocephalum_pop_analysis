@@ -119,9 +119,9 @@ yearly_loop <- function(yr, clim, locality,
   # Discrete stages  ------------------------------------------------------
   
   # survival of discrete stages
-  seeds <- rbinom(1, prob = params$seed_surv1, size = tot_seeds)
-  sb1 <- rbinom(1, prob = params$seed_surv2, size = sb1)
-  sb2 <- rbinom(1, prob = params$seed_surv3, size = sb2)
+  seeds <- rbinom(1, prob = params$seed_viability, size = tot_seeds)
+  sb1 <- rbinom(1, prob = params$seed_surv1, size = sb1)
+  sb2 <- rbinom(1, prob = params$seed_surv2, size = sb2)
   sdl_to_plant <- rbinom(1, prob = params$sdl_surv_mean, size = sdl)
     
   # discrete stage transitions

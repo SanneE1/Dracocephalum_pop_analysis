@@ -79,10 +79,10 @@ params <- list(
   nseed_mod = VR_mods$seedn,
   nseed_sd = readRDS(file = "results/rds/seasons_seedn_sd.rds"),
   
-  seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
-  seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
+  seed_viability = 0.45,  ## Probability of seed produced by the plants, being viable 
+  seed_surv1 = 0.089,     ## Probability of viable seed surviving first year in seed bank. 
   ## (i.e. produced in t, surv to census t+1 (with % above), not germinated in t+1 and 
-  seed_surv3 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
+  seed_surv2 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
   
   sdl_est_mean = mean(state_independent_variables$est_germination_rate$germ),     
   
@@ -158,9 +158,6 @@ df_env <- rbind(df_envH, df_envS) %>% rowid_to_column()
 ## -------------------------------------------------------------------------------------------
 gc()
 print("start ibm")
-
-# args <- commandArgs(trailingOnly = TRUE)
-# taskID = as.integer(args[1])
 
 for(taskID in c(1:nrow(df_env))) {
 results <- lapply(as.list(c(1:50)), function(x) {

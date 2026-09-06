@@ -74,7 +74,7 @@ source("analysis/extinction_prop.R")
 
 # Run model during observational data period for in sample model validation
 # (out sample plotted in Plot_results.R)
-source("analysis/IBM_validation.R")
+# source("analysis/IBM_validation.R")
 
 # Run same future scenarios for small selection of shading values to evaluate 
 # effect of different starting values
