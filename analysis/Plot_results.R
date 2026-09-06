@@ -342,7 +342,7 @@ pop_size_45_herb_sb1 <- ggplot(ext_summary_sb %>% filter(Sshading == 2 &
   viridis::scale_fill_viridis(option = "D", discrete = TRUE, direction = -1, name = "Shading level") +
   scale_linetype_discrete(name = "Seed bank") +
   facet_grid(rows = vars(locality), scales = "free_y") +
-  xlab("Simulation year") + ylab("Population size") + ggtitle("Herbaceous seed bank") + 
+  xlab("Simulation year") + ylab("Population size") + ggtitle("Herbaceous shading") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 pop_size_45_shrub_sb1 <- ggplot(ext_summary_sb %>% filter(Hshading == 2 &
@@ -361,7 +361,7 @@ pop_size_45_shrub_sb1 <- ggplot(ext_summary_sb %>% filter(Hshading == 2 &
   viridis::scale_fill_viridis(option = "D", discrete = TRUE, direction = -1, name = "Shading level") +
   scale_linetype_discrete(name = "Seed bank") +
   facet_grid(rows = vars(locality), scales = "free_y") +
-  xlab("Simulation year") + ylab("Population size") + ggtitle("Shrub seed bank") + 
+  xlab("Simulation year") + ylab("Population size") + ggtitle("Shrub shading") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 pop_size_45_herb_sb2 <- ggplot(ext_summary_sb %>% filter(Sshading == 2 &
@@ -380,7 +380,7 @@ pop_size_45_herb_sb2 <- ggplot(ext_summary_sb %>% filter(Sshading == 2 &
   viridis::scale_fill_viridis(option = "D", discrete = TRUE, direction = -1, name = "Shading level") +
   scale_linetype_discrete(name = "Seed bank") +
   facet_grid(rows = vars(locality), scales = "free_y") +
-  xlab("Simulation year") + ylab("Population size") + ggtitle("Herbaceous seed bank") + 
+  xlab("Simulation year") + ylab("Population size") + ggtitle("Herbaceous shading") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 pop_size_45_shrub_sb2 <- ggplot(ext_summary_sb %>% filter(Hshading == 2 &
@@ -399,19 +399,21 @@ pop_size_45_shrub_sb2 <- ggplot(ext_summary_sb %>% filter(Hshading == 2 &
   viridis::scale_fill_viridis(option = "D", discrete = TRUE, direction = -1, name = "Shading level") +
   scale_linetype_discrete(name = "Seed bank") +
   facet_grid(rows = vars(locality), scales = "free_y") +
-  xlab("Simulation year") + ylab("Population size") + ggtitle("Shrub seed bank") + 
+  xlab("Simulation year") + ylab("Population size") + ggtitle("Shrub shading") + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-sb1_rcp45 <- pop_size_45_herb_sb1 + pop_size_45_shrub_sb1 + plot_layout(guides = "collect") &
+sb1_rcp45 <- pop_size_45_herb_sb1 + pop_size_45_shrub_sb1 + plot_layout(guides = "collect") +
+  plot_annotation(title = "1st year seedbank dynamics") &
   facetted_pos_scales(
     y = list(
-      scale_y_continuous(limits = c(0, 50000)),
+      scale_y_continuous(limits = c(0, 40000)),
       scale_y_continuous(limits = c(0, 1500000)),
-      scale_y_continuous(limits = c(0, 6000)),
-      scale_y_continuous(limits = c(0, 20000))
+      scale_y_continuous(limits = c(0, 4000)),
+      scale_y_continuous(limits = c(0, 15000))
     )) & theme(text = element_text(size = 14))
 
-sb2_rcp45 <- pop_size_45_herb_sb2 + pop_size_45_shrub_sb2 + plot_layout(guides = "collect") &
+sb2_rcp45 <- pop_size_45_herb_sb2 + pop_size_45_shrub_sb2 + plot_layout(guides = "collect") +
+  plot_annotation(title = "2nd year seedbank dynamics") &
   facetted_pos_scales(
     y = list(
       scale_y_continuous(limits = c(0, 3000)),
@@ -420,8 +422,8 @@ sb2_rcp45 <- pop_size_45_herb_sb2 + pop_size_45_shrub_sb2 + plot_layout(guides =
       scale_y_continuous(limits = c(0, 1000))
     )) & theme(text = element_text(size = 14))
 
-ggsave(sb1_rcp45, filename = "results/seedbank_dynamics_sb1.png", width = 6, height = 4)
-ggsave(sb2_rcp45, filename = "results/seedbank_dynamics_sb2.png", width = 6, height = 4)
+ggsave(sb1_rcp45, filename = "results/seedbank_dynamics_sb1.png", width = 8, height = 6)
+ggsave(sb2_rcp45, filename = "results/seedbank_dynamics_sb2.png", width = 8, height = 6)
 
 
 
