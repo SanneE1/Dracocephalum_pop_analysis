@@ -83,12 +83,12 @@ params <- list(
   nseed_mod = VR_mods$seedn,
   nseed_sd = readRDS(file = "results/rds/seasons_seedn_sd.rds"),
   
-  seed_surv1 = 0.45,  ## Probability of seed being viable at the next census 
-  seed_surv2 = 0.089,  ## Probability of viable seed surviving first year in seed bank. 
-  ## (i.e. produced in t, surv to census t+1 (with % above), not germinated in t+1 and 
-  seed_surv3 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
-  
-  germ_mean = mean(state_independent_variables$est_germination_rate$germ),     
+  seed_viability = 0.45,  ## Probability of seed produced by the plants, being viable
+  seed_surv1 = 0.089,     ## Probability of viable seed surviving first year in seed bank.
+  ## (i.e. produced in t, surv to census t+1 (with % above), not germinated in t+1 and
+  seed_surv2 = 0.663,  ## Probability of viable seed in seedbank (yr 1) surviving 2nd year
+
+  sdl_est_mean = mean(state_independent_variables$est_germination_rate$germ),
   
   sdl_surv_mean = boot::inv.logit(fixef(state_independent_variables$sdl_surv)),
   
@@ -276,7 +276,7 @@ print("start ibm")
 # taskID = as.integer(args[1])
 
 for(taskID in c(1:nrow(df_env))) {
-  results <- lapply(as.list(c(1:5)), function(x) {
+  results <- lapply(as.list(c(1:20)), function(x) {
     a <- ibm_sb(i = taskID, df_env = df_env,
                    params = params,
                    fut_clim = fut_clim,

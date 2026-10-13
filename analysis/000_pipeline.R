@@ -64,7 +64,7 @@ source("analysis/state_independent_variables.R")
 
 # Short-term IBM Calculate extinction probability from 2022-2100
 # Takes a long time. with submit_extinct_prob.sh it can be run on the UFZ HPC
-source("analysis/extinction_prop.R")
+source("analysis/IBM_projections.R")
 # File produced:
 # results/rds/extinction_probability.rds
 
@@ -74,11 +74,17 @@ source("analysis/extinction_prop.R")
 
 # Run model during observational data period for in sample model validation
 # (out sample plotted in Plot_results.R)
-# source("analysis/IBM_validation.R")
+source("analysis/IBM_validation.R")
 
 # Run same future scenarios for small selection of shading values to evaluate 
 # effect of different starting values
 source("analysis/IBM_seedbank_sensitivity.R")
+
+# Run the future scenarios testing the effect of potentially 
+# different seedbank survival in the populations other than Hk
+# varying seedsurvivan +-25% or 50%
+source("analysis/IBM_seedbank_survival_effect.R")
+
 
 # ----------------------------------------------------------------------
 # Process results
